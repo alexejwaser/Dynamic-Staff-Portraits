@@ -1,10 +1,14 @@
+
 # app/ui/main_window.py
+
 from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from ..core.imaging.processor import process_image
+
 from ..core.util.paths import class_output_dir, new_learner_dir
+
 from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
 from datetime import datetime
@@ -33,7 +37,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _setup_ui(self):
         self.setWindowTitle('Porträt-Fotografie')
+
         self.setFixedSize(1000, 700)
+
         central = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout(central)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -48,6 +54,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class = QtWidgets.QComboBox()
         self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setMaxVisibleItems(25)
+
         self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
         self.btn_skip = QtWidgets.QPushButton('Überspringen')
         self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
@@ -57,6 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for w in [self.btn_excel, self.cmb_location, self.cmb_class,
                   self.btn_capture, self.btn_skip, self.btn_add_person,
                   self.btn_finish, self.cmb_overlay]:
+
             control.addWidget(w)
         control.addStretch()
         layout.addLayout(control)
@@ -71,10 +79,12 @@ class MainWindow(QtWidgets.QMainWindow):
         stack.addWidget(self.preview)
         self.overlay = Overlay()
         stack.addWidget(self.overlay)
+
         self.label_next = QtWidgets.QLabel('')
         self.label_next.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
         self.label_next.setStyleSheet('background-color: rgba(0,0,0,120); color:white; padding:2px;')
         stack.addWidget(self.label_next)
+
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
         preview_layout.addWidget(container)
@@ -92,10 +102,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class.currentTextChanged.connect(self.load_learners)
         self.btn_capture.clicked.connect(self.capture_photo)
         self.btn_skip.clicked.connect(self.skip_learner)
+
         self.btn_add_person.clicked.connect(self.add_person)
         self.btn_finish.clicked.connect(self.finish_class)
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.cmb_overlay.currentTextChanged.connect(self.change_overlay)
+
 
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
@@ -124,16 +136,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_next.setText('Klasse abgeschlossen')
             return
         l = self.learners[self.current]
+
         if l.is_new:
             txt = f"{l.vorname} {l.nachname}"
         else:
             txt = f"{l.vorname} {l.nachname} ({l.schueler_id})"
         self.label_next.setText(txt)
 
+
     def capture_photo(self):
         if self.current >= len(self.learners):
             return
         learner = self.learners[self.current]
+
         location = self.cmb_location.currentText()
         if learner.is_new:
             out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
@@ -142,6 +157,7 @@ class MainWindow(QtWidgets.QMainWindow):
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
             filename = f"{learner.schueler_id}.jpg"
         raw_path = out_dir / filename
+
         self.camera.capture(raw_path)
         aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
         process_image(
@@ -152,10 +168,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings.bild['qualitaet'],
             aspect,
         )
+
         if self._show_review(raw_path):
             self.current += 1
         else:
             raw_path.unlink(missing_ok=True)
+
         self.show_next()
 
     def skip_learner(self):
@@ -193,6 +211,7 @@ class MainWindow(QtWidgets.QMainWindow):
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
+
 
     def add_person(self):
         dlg = QtWidgets.QDialog(self)
@@ -240,6 +259,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg.exec()
         return result['ok']
 
+
     def switch_camera(self):
         if hasattr(self.camera, 'switch_camera'):
             self.current_cam_id = getattr(self, 'current_cam_id', 0) + 1
@@ -255,4 +275,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         self.camera.stop_liveview()
+
         super().closeEvent(event)
+
