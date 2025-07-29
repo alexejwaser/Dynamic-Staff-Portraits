@@ -12,6 +12,10 @@ class Overlay(QtWidgets.QWidget):
         self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
         self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
 
 
     def set_mode(self, mode: str):
@@ -33,4 +37,3 @@ class Overlay(QtWidgets.QWidget):
         elif self.mode == "crosshair":
             painter.drawLine(w // 2, 0, w // 2, h)
             painter.drawLine(0, h // 2, w, h // 2)
-

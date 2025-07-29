@@ -1,4 +1,3 @@
-
 # app/core/camera/base.py
 
 from abc import ABC, abstractmethod
@@ -23,6 +22,5 @@ class BaseCamera(ABC):
     @abstractmethod
     def capture_preview(self, dest: Path) -> None:
         """Capture a single preview frame to ``dest``."""
-
         pass
 

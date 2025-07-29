@@ -25,7 +25,6 @@ Unter Windows wird die eingebaute Webcam via OpenCV verwendet. Wenn `gphoto2`
 vorhanden ist, kann alternativ eine DSLR genutzt werden; sonst startet ein
 Simulator.
 
-
 ## Tests
 
 ```bash

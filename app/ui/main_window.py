@@ -137,10 +137,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         l = self.learners[self.current]
 
-        if l.is_new:
-            txt = f"{l.vorname} {l.nachname}"
-        else:
-            txt = f"{l.vorname} {l.nachname} ({l.schueler_id})"
+        txt = f"{l.vorname} {l.nachname}"
         self.label_next.setText(txt)
 
 

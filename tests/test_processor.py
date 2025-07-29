@@ -1,4 +1,3 @@
-
 # tests/test_processor.py
 
 from pathlib import Path
@@ -25,4 +24,3 @@ def test_process_crop(tmp_path):
     with Image.open(dest) as im:
 
         assert im.size == (200, 200)
-
