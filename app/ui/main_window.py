@@ -151,16 +151,25 @@ class MainWindow(QtWidgets.QMainWindow):
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
             filename = f"{learner.schueler_id}.jpg"
         raw_path = out_dir / filename
-        self.camera.capture(raw_path)
+        try:
+            self.camera.capture(raw_path)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
+            return
         aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
-        process_image(
-            raw_path,
-            raw_path,
-            self.settings.bild['breite'],
-            self.settings.bild['hoehe'],
-            self.settings.bild['qualitaet'],
-            aspect,
-        )
+        try:
+            process_image(
+                raw_path,
+                raw_path,
+                self.settings.bild['breite'],
+                self.settings.bild['hoehe'],
+                self.settings.bild['qualitaet'],
+                aspect,
+            )
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, 'Bildverarbeitung', str(e))
+            raw_path.unlink(missing_ok=True)
+            return
         if self._show_review(raw_path):
             self.current += 1
         else:

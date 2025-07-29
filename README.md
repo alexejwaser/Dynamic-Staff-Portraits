@@ -2,6 +2,7 @@
 
 Eine Desktop-Anwendung zur effizienten Erstellung von Portraitfotos.
 
+
 ## Installation Windows
 
 ```bash

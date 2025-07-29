@@ -13,6 +13,7 @@ class Overlay(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding,
         )
+
     def set_mode(self, mode: str):
         self.mode = mode
         self.update()
