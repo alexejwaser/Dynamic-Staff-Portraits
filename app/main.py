@@ -2,10 +2,9 @@
 import sys
 from PySide6 import QtWidgets, QtGui
 from pathlib import Path
-from .core.config.settings import Settings
-from .core.util.logging import setup_logging
-from .ui.main_window import MainWindow
-
+from app.core.config.settings import Settings
+from app.core.util.logging import setup_logging
+from app.ui.main_window import MainWindow
 
 def main():
     settings = Settings.load()
