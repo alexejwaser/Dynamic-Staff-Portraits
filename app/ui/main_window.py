@@ -74,23 +74,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # right preview
         from .widgets.live_view_widget import LiveViewWidget
-        from .widgets.overlay import Overlay
         fps = self.settings.kamera.get('liveviewFpsZiel', 20)
         self.preview = LiveViewWidget(self.camera, fps)
-        container = QtWidgets.QWidget()
-        container.setStyleSheet('background-color: black;')
-        stack = QtWidgets.QStackedLayout(container)
-        stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
-        stack.addWidget(self.preview)
-        self.overlay = Overlay()
-        stack.addWidget(self.overlay)
+        self.preview.set_overlay_mode('thirds')
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
         self.label_next = QtWidgets.QLabel('')
         self.label_next.setAlignment(QtCore.Qt.AlignCenter)
         self.label_next.setStyleSheet('font-size:16px;')
         preview_layout.addWidget(self.label_next)
-        preview_layout.addWidget(container)
+        preview_layout.addWidget(self.preview)
         self.btn_switch_camera = QtWidgets.QPushButton('Kamera wechseln')
         self.btn_switch_camera.setFixedWidth(120)
         preview_layout.addWidget(self.btn_switch_camera)
@@ -179,9 +172,24 @@ class MainWindow(QtWidgets.QMainWindow):
     def skip_learner(self):
         if self.current >= len(self.learners):
             return
+        reason, ok = QtWidgets.QInputDialog.getText(
+            self,
+            'Grund',
+            'Grund für das Überspringen eingeben:',
+        )
+        if not ok:
+            return
         learner = self.learners[self.current]
         missed = MissedWriter(Path('Verpasste_Termine.xlsx'))
-        entry = MissedEntry(self.cmb_location.currentText(), learner.klasse, learner.nachname, learner.vorname, learner.schueler_id, datetime.now().isoformat())
+        entry = MissedEntry(
+            self.cmb_location.currentText(),
+            learner.klasse,
+            learner.nachname,
+            learner.vorname,
+            learner.schueler_id,
+            datetime.now().isoformat(),
+            reason,
+        )
         missed.append(entry)
         self.current += 1
         self.show_next()
@@ -234,9 +242,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_overlay(self, text: str):
         if text == 'Fadenkreuz':
-            self.overlay.set_mode('crosshair')
+            self.preview.set_overlay_mode('crosshair')
         else:
-            self.overlay.set_mode('thirds')
+            self.preview.set_overlay_mode('thirds')
 
     def _show_review(self, path: Path) -> bool:
         dlg = QtWidgets.QDialog(self)
@@ -263,11 +271,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.current_cam_id = getattr(self, 'current_cam_id', 0) + 1
             try:
                 self.camera.switch_camera(self.current_cam_id)
+                self.preview.set_camera(self.camera)
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, 'Kamera', str(e))
                 self.current_cam_id = 0
                 try:
                     self.camera.switch_camera(self.current_cam_id)
+                    self.preview.set_camera(self.camera)
                 except Exception:
                     pass
 
