@@ -18,7 +18,9 @@ class BaseCamera(ABC):
     def capture(self, dest: Path) -> None:
         pass
 
+
     @abstractmethod
     def capture_preview(self, dest: Path) -> None:
         """Capture a single preview frame to ``dest``."""
         pass
+
