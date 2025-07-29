@@ -3,7 +3,6 @@ from PySide6 import QtWidgets, QtGui, QtCore
 
 class Overlay(QtWidgets.QWidget):
     """Draw various overlay helpers above der LiveView."""
-
     def __init__(self, parent=None, mode: str = "thirds"):
         super().__init__(parent)
         self.mode = mode
@@ -14,11 +13,9 @@ class Overlay(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding,
         )
-
     def set_mode(self, mode: str):
         self.mode = mode
         self.update()
-
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         pen = QtGui.QPen(QtGui.QColor(255, 255, 255, 128))

@@ -12,7 +12,6 @@ class Learner:
     vorname: str
     schueler_id: str = ''
     is_new: bool = False
-
 class ExcelReader:
     def __init__(self, path: Path, mapping: dict):
         self.path = path
