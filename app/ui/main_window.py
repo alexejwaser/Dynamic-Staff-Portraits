@@ -103,7 +103,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.cmb_overlay.currentTextChanged.connect(self.change_overlay)
         self.btn_settings.clicked.connect(self.open_settings)
-
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
@@ -133,7 +132,6 @@ class MainWindow(QtWidgets.QMainWindow):
         l = self.learners[self.current]
         txt = f"{l.vorname} {l.nachname}"
         self.label_next.setText(txt)
-
     def capture_photo(self):
         if self.current >= len(self.learners):
             return
