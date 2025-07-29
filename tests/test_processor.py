@@ -1,4 +1,3 @@
-# tests/test_processor.py
 from pathlib import Path
 from PIL import Image
 from app.core.imaging.processor import process_image

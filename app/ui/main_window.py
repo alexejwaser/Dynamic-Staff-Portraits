@@ -1,4 +1,3 @@
-# app/ui/main_window.py
 from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
 from ..core.config.settings import Settings
