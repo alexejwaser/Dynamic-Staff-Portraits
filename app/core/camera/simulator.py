@@ -20,3 +20,4 @@ class SimulatorCamera(BaseCamera):
 
     def capture_preview(self, dest: Path) -> None:
         self.capture(dest)
+
