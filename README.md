@@ -2,20 +2,11 @@
 
 Eine Desktop-Anwendung zur effizienten Erstellung von Portraitfotos.
 
-
-## Installation Windows
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Installation MacOS
+## Installation
 
 ```bash
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
