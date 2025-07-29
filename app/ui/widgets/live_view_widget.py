@@ -27,7 +27,6 @@ class LiveViewWidget(QtWidgets.QWidget):
 
     def set_overlay_mode(self, mode: str):
         self.overlay.set_mode(mode)
-
     def update_frame(self):
         try:
             if hasattr(self.camera, 'get_preview_qimage'):

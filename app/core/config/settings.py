@@ -12,7 +12,6 @@ def _parse_ratio(value):
     if isinstance(value, (list, tuple)) and len(value) == 2:
         return int(value[0]), int(value[1])
     return (3, 4)
-
 DEFAULTS = {
     'ausgabeBasisPfad': 'output',
     'bild': {'breite': 1200, 'hoehe': 1600, 'qualitaet': 90, 'seitenverhaeltnis': '3:4'},
