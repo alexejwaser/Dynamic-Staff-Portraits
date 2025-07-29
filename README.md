@@ -16,6 +16,11 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
+
+Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt.
+Für echte Kameras wird `gphoto2` verwendet, andernfalls startet ein Simulator.
+
+
 ## Tests
 
 ```bash

@@ -2,7 +2,11 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
 from ..core.config.settings import Settings
+ 
+from ..core.camera import SimulatorCamera, GPhoto2Camera
+
 from ..core.camera.simulator import SimulatorCamera
+
 from ..core.imaging.processor import process_image
 from ..core.util.paths import class_output_dir
 from ..core.excel.reader import ExcelReader, Learner
@@ -13,11 +17,25 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings: Settings):
         super().__init__()
         self.settings = settings
+
+        try:
+            if QtCore.QStandardPaths.findExecutable('gphoto2'):
+                self.camera = GPhoto2Camera()
+            else:
+                self.camera = SimulatorCamera()
+        except Exception:
+            self.camera = SimulatorCamera()
+
         self.camera = SimulatorCamera()
+
         self.reader = None
         self.learners = []
         self.current = 0
         self._setup_ui()
+
+        self.camera.start_liveview()
+
+
 
     def _setup_ui(self):
         self.setWindowTitle('Porträt-Fotografie')
@@ -41,8 +59,13 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addLayout(control)
 
         # right preview
+
+        from .widgets.live_view_widget import LiveViewWidget
+        self.preview = LiveViewWidget(self.camera)
+
         self.preview = QtWidgets.QLabel('LiveView')
         self.preview.setFixedSize(640, 480)
+
         layout.addWidget(self.preview)
 
         self.btn_excel.clicked.connect(self.load_excel)
@@ -103,4 +126,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_next()
 
     def finish_class(self):
+
+        location = self.cmb_location.currentText()
+        klasse = self.cmb_class.currentText()
+        out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, klasse)
+        files = sorted(out_dir.glob('*.jpg'))
+        if files:
+            from ..core.archiver.chunk_zip import chunk_by_count
+            zip_base = out_dir / f"{klasse}.zip"
+            max_count = self.settings.zip.get('maxAnzahl') or len(files)
+            chunk_by_count(files, zip_base, max_count)
         QtWidgets.QMessageBox.information(self, 'Info', 'Klasse abgeschlossen')
+
+    def closeEvent(self, event):
+        self.camera.stop_liveview()
+        super().closeEvent(event)
+
+        QtWidgets.QMessageBox.information(self, 'Info', 'Klasse abgeschlossen')
+

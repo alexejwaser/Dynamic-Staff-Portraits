@@ -17,3 +17,8 @@ class SimulatorCamera(BaseCamera):
         d = ImageDraw.Draw(img)
         d.text((10, 10), time.strftime('%H:%M:%S'), fill=(255, 255, 255))
         img.save(dest)
+
+
+    def capture_preview(self, dest: Path) -> None:
+        self.capture(dest)
+
