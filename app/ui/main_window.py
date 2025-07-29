@@ -1,14 +1,11 @@
-
 # app/ui/main_window.py
-
 from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
+from .settings_dialog import SettingsDialog
 from ..core.imaging.processor import process_image
-
 from ..core.util.paths import class_output_dir, new_learner_dir
-
 from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
 from datetime import datetime
@@ -17,29 +14,33 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings: Settings):
         super().__init__()
         self.settings = settings
-        try:
-            self.camera = OpenCVCamera()
-            self.camera.start_liveview()
-        except Exception:
-            try:
-                if QtCore.QStandardPaths.findExecutable('gphoto2'):
-                    self.camera = GPhoto2Camera()
-                else:
-                    self.camera = SimulatorCamera()
-            except Exception:
-                self.camera = SimulatorCamera()
+        self.camera = self._init_camera()
         self.reader = None
         self.learners = []
         self.current = 0
         self._setup_ui()
-        if not isinstance(self.camera, OpenCVCamera):
+        if hasattr(self.camera, 'start_liveview'):
             self.camera.start_liveview()
 
+    def _init_camera(self):
+        backend = self.settings.kamera.get('backend', 'opencv')
+        cam = None
+        if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
+            cam = GPhoto2Camera()
+        elif backend == 'simulator':
+            cam = SimulatorCamera()
+        else:
+            try:
+                cam = OpenCVCamera()
+            except Exception:
+                cam = None
+        if cam is None:
+            cam = SimulatorCamera()
+        return cam
+
     def _setup_ui(self):
-        self.setWindowTitle('Porträt-Fotografie')
-
+        self.setWindowTitle('LegicCard-Creator')
         self.setFixedSize(1000, 700)
-
         central = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout(central)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -54,17 +55,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class = QtWidgets.QComboBox()
         self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setMaxVisibleItems(25)
-
         self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
         self.btn_skip = QtWidgets.QPushButton('Überspringen')
         self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
         self.btn_finish = QtWidgets.QPushButton('Fertig')
+        self.btn_settings = QtWidgets.QPushButton('')
+        icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
+        self.btn_settings.setIcon(icon)
+        self.btn_settings.setToolTip('Einstellungen')
         self.cmb_overlay = QtWidgets.QComboBox()
         self.cmb_overlay.addItems(['Drittel', 'Fadenkreuz'])
         for w in [self.btn_excel, self.cmb_location, self.cmb_class,
                   self.btn_capture, self.btn_skip, self.btn_add_person,
-                  self.btn_finish, self.cmb_overlay]:
-
+                  self.btn_finish, self.cmb_overlay, self.btn_settings]:
             control.addWidget(w)
         control.addStretch()
         layout.addLayout(control)
@@ -72,21 +75,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # right preview
         from .widgets.live_view_widget import LiveViewWidget
         from .widgets.overlay import Overlay
-        self.preview = LiveViewWidget(self.camera)
+        fps = self.settings.kamera.get('liveviewFpsZiel', 20)
+        self.preview = LiveViewWidget(self.camera, fps)
         container = QtWidgets.QWidget()
+        container.setStyleSheet('background-color: black;')
         stack = QtWidgets.QStackedLayout(container)
         stack.setStackingMode(QtWidgets.QStackedLayout.StackAll)
         stack.addWidget(self.preview)
         self.overlay = Overlay()
         stack.addWidget(self.overlay)
-
-        self.label_next = QtWidgets.QLabel('')
-        self.label_next.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignHCenter)
-        self.label_next.setStyleSheet('background-color: rgba(0,0,0,120); color:white; padding:2px;')
-        stack.addWidget(self.label_next)
-
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
+        self.label_next = QtWidgets.QLabel('')
+        self.label_next.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_next.setStyleSheet('font-size:16px;')
+        preview_layout.addWidget(self.label_next)
         preview_layout.addWidget(container)
         self.btn_switch_camera = QtWidgets.QPushButton('Kamera wechseln')
         self.btn_switch_camera.setFixedWidth(120)
@@ -94,7 +97,7 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addLayout(preview_layout)
 
         self.setStyleSheet(
-            "QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
+            "* {font-family: 'Segoe UI';} QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
         )
 
         self.btn_excel.clicked.connect(self.load_excel)
@@ -102,13 +105,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class.currentTextChanged.connect(self.load_learners)
         self.btn_capture.clicked.connect(self.capture_photo)
         self.btn_skip.clicked.connect(self.skip_learner)
-
         self.btn_add_person.clicked.connect(self.add_person)
         self.btn_finish.clicked.connect(self.finish_class)
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.cmb_overlay.currentTextChanged.connect(self.change_overlay)
-
-
+        self.btn_settings.clicked.connect(self.open_settings)
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
@@ -136,16 +137,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_next.setText('Klasse abgeschlossen')
             return
         l = self.learners[self.current]
-
         txt = f"{l.vorname} {l.nachname}"
         self.label_next.setText(txt)
-
-
     def capture_photo(self):
         if self.current >= len(self.learners):
             return
         learner = self.learners[self.current]
-
         location = self.cmb_location.currentText()
         if learner.is_new:
             out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
@@ -154,7 +151,6 @@ class MainWindow(QtWidgets.QMainWindow):
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
             filename = f"{learner.schueler_id}.jpg"
         raw_path = out_dir / filename
-
         self.camera.capture(raw_path)
         aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
         process_image(
@@ -165,12 +161,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings.bild['qualitaet'],
             aspect,
         )
-
         if self._show_review(raw_path):
             self.current += 1
         else:
             raw_path.unlink(missing_ok=True)
-
         self.show_next()
 
     def skip_learner(self):
@@ -208,7 +202,6 @@ class MainWindow(QtWidgets.QMainWindow):
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
-
 
     def add_person(self):
         dlg = QtWidgets.QDialog(self)
@@ -256,7 +249,6 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg.exec()
         return result['ok']
 
-
     def switch_camera(self):
         if hasattr(self.camera, 'switch_camera'):
             self.current_cam_id = getattr(self, 'current_cam_id', 0) + 1
@@ -272,6 +264,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         self.camera.stop_liveview()
-
         super().closeEvent(event)
 
+    def open_settings(self):
+        dlg = SettingsDialog(self.settings, self)
+        before = self.settings.kamera.get('backend')
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            if self.settings.kamera.get('backend') != before:
+                self.camera.stop_liveview()
+                self.camera = self._init_camera()
+                if hasattr(self.camera, 'start_liveview'):
+                    self.camera.start_liveview()
+                self.preview.set_camera(self.camera)

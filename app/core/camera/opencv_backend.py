@@ -1,6 +1,7 @@
 # app/core/camera/opencv_backend.py
 from pathlib import Path
 import cv2
+from PySide6 import QtGui
 from .base import BaseCamera, CameraError
 
 
@@ -34,6 +35,18 @@ class OpenCVCamera(BaseCamera):
 
     def capture_preview(self, dest: Path) -> None:
         self.capture(dest)
+
+    def get_preview_qimage(self) -> QtGui.QImage:
+        self._ensure_open()
+        ret, frame = self.cap.read()
+        if not ret:
+            raise CameraError("Kein Bild von Kamera erhalten")
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        bytes_per_line = ch * w
+        img = QtGui.QImage(rgb.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
+        return img.copy()
 
     def switch_camera(self, camera_id: int):
         self.stop_liveview()
