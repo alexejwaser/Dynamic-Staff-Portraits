@@ -11,3 +11,10 @@ def class_output_dir(base: Path, location: str, class_name: str) -> Path:
     path = base / safe_loc / safe_class
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+
+def new_learner_dir(base: Path, location: str, class_name: str) -> Path:
+    """Return folder for additional learners."""
+    return class_output_dir(base / 'Neue Lernende', location, class_name)
+

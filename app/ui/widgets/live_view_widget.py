@@ -1,3 +1,6 @@
+
+# app/ui/widgets/live_view_widget.py
+
 from pathlib import Path
 from PySide6 import QtWidgets, QtGui, QtCore
 
@@ -22,4 +25,6 @@ class LiveViewWidget(QtWidgets.QLabel):
             if not pix.isNull():
                 self.setPixmap(pix.scaled(self.size(), QtCore.Qt.KeepAspectRatio))
         finally:
+
             path.unlink(missing_ok=True)
+
