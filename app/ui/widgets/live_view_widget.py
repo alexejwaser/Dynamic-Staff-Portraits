@@ -5,7 +5,7 @@ class LiveViewWidget(QtWidgets.QLabel):
     def __init__(self, camera, parent=None):
         super().__init__(parent)
         self.camera = camera
-        self.setFixedSize(640, 480)
+        self.setFixedSize(480, 640)
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.setText('LiveView')
         self.timer = QtCore.QTimer(self)

@@ -34,13 +34,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle('Porträt-Fotografie')
         central = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout(central)
+        layout.setContentsMargins(20, 20, 20, 20)
         self.setCentralWidget(central)
 
         # left controls
         control = QtWidgets.QVBoxLayout()
+        control.setSpacing(10)
         self.btn_excel = QtWidgets.QPushButton('Excel verbinden...')
         self.cmb_location = QtWidgets.QComboBox()
+        self.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class = QtWidgets.QComboBox()
+        self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.cmb_class.setMaxVisibleItems(25)
         self.label_next = QtWidgets.QLabel('')
         self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
         self.btn_skip = QtWidgets.QPushButton('Überspringen')
@@ -62,11 +67,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.overlay = Overlay()
         stack.addWidget(self.overlay)
         preview_layout = QtWidgets.QVBoxLayout()
+        preview_layout.setSpacing(10)
         preview_layout.addWidget(container)
         self.btn_switch_camera = QtWidgets.QPushButton('Kamera wechseln')
         self.btn_switch_camera.setFixedWidth(120)
         preview_layout.addWidget(self.btn_switch_camera)
         layout.addLayout(preview_layout)
+
+        self.setStyleSheet(
+            "QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
+        )
 
         self.btn_excel.clicked.connect(self.load_excel)
         self.cmb_location.currentTextChanged.connect(self.update_classes)
@@ -112,7 +122,15 @@ class MainWindow(QtWidgets.QMainWindow):
         out_dir = class_output_dir(self.settings.ausgabeBasisPfad, self.cmb_location.currentText(), learner.klasse)
         raw_path = out_dir / f"{learner.schueler_id}.jpg"
         self.camera.capture(raw_path)
-        process_image(raw_path, raw_path, self.settings.bild['breite'], self.settings.bild['hoehe'], self.settings.bild['qualitaet'])
+        aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
+        process_image(
+            raw_path,
+            raw_path,
+            self.settings.bild['breite'],
+            self.settings.bild['hoehe'],
+            self.settings.bild['qualitaet'],
+            aspect,
+        )
         self.current += 1
         self.show_next()
 
@@ -135,8 +153,22 @@ class MainWindow(QtWidgets.QMainWindow):
             from ..core.archiver.chunk_zip import chunk_by_count
             zip_base = out_dir / f"{klasse}.zip"
             max_count = self.settings.zip.get('maxAnzahl') or len(files)
-            chunk_by_count(files, zip_base, max_count)
-        QtWidgets.QMessageBox.information(self, 'Info', 'Klasse abgeschlossen')
+            zip_paths = chunk_by_count(files, zip_base, max_count)
+        else:
+            zip_paths = []
+
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle('Klasse abgeschlossen')
+        if zip_paths:
+            msg.setText(f'ZIP-Archiv {zip_paths[0].name} wurde erstellt.')
+            open_btn = msg.addButton('Ordner öffnen', QtWidgets.QMessageBox.ActionRole)
+        else:
+            msg.setText('Klasse abgeschlossen')
+            open_btn = None
+        msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
+        msg.exec()
+        if open_btn and msg.clickedButton() == open_btn:
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
 
     def switch_camera(self):
         if hasattr(self.camera, 'switch_camera'):

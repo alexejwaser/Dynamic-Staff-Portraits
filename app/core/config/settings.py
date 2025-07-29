@@ -1,7 +1,19 @@
 # app/core/config/settings.py
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from pathlib import Path
 import json
+
+
+def _parse_ratio(value):
+    if isinstance(value, str) and ':' in value:
+        a, b = value.split(':', 1)
+        if a.isdigit() and b.isdigit():
+            return int(a), int(b)
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        return int(value[0]), int(value[1])
+    return (3, 4)
+
 
 DEFAULTS = {
     'ausgabeBasisPfad': 'output',
@@ -33,9 +45,17 @@ class Settings:
             data = DEFAULTS
             path.write_text(json.dumps(data, indent=2), encoding='utf-8')
         data['ausgabeBasisPfad'] = Path(data['ausgabeBasisPfad'])
+
+        data['bild']['seitenverhaeltnis'] = _parse_ratio(data['bild'].get('seitenverhaeltnis', '3:4'))
+
         return Settings(**data)
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         data = self.__dict__.copy()
         data['ausgabeBasisPfad'] = str(data['ausgabeBasisPfad'])
+
+        ratio = data['bild'].get('seitenverhaeltnis', (3, 4))
+        if isinstance(ratio, tuple):
+            data['bild']['seitenverhaeltnis'] = f"{ratio[0]}:{ratio[1]}"
+
         path.write_text(json.dumps(data, indent=2), encoding='utf-8')
