@@ -16,6 +16,13 @@ pip install -r requirements.txt
 python -m app.main
 ```
 
+
+Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt.
+Unter Windows wird die eingebaute Webcam via OpenCV verwendet. Wenn `gphoto2`
+vorhanden ist, kann alternativ eine DSLR genutzt werden; sonst startet ein
+Simulator.
+
+
 ## Tests
 
 ```bash
