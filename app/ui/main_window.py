@@ -68,10 +68,21 @@ class MainWindow(QtWidgets.QMainWindow):
         search_icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView)
         self.btn_search_class.setIcon(search_icon)
         self.btn_search_class.setToolTip('Klasse suchen')
-        self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
-        self.btn_skip = QtWidgets.QPushButton('Überspringen')
-        self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
-        self.btn_finish = QtWidgets.QPushButton('Fertig')
+        self.btn_capture = QtWidgets.QPushButton()
+        self.btn_capture.setText('Foto aufnehmen<br><small>[Leertaste]</small>')
+        self.btn_capture.setTextFormat(QtCore.Qt.RichText)
+
+        self.btn_skip = QtWidgets.QPushButton()
+        self.btn_skip.setText('Überspringen<br><small>[S]</small>')
+        self.btn_skip.setTextFormat(QtCore.Qt.RichText)
+
+        self.btn_add_person = QtWidgets.QPushButton()
+        self.btn_add_person.setText('Person hinzufügen<br><small>[A]</small>')
+        self.btn_add_person.setTextFormat(QtCore.Qt.RichText)
+
+        self.btn_finish = QtWidgets.QPushButton()
+        self.btn_finish.setText('Fertig<br><small>[F]</small>')
+        self.btn_finish.setTextFormat(QtCore.Qt.RichText)
         self.btn_settings = QtWidgets.QPushButton('')
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
         self.btn_settings.setIcon(icon)
@@ -128,6 +139,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_search_class.clicked.connect(self.search_class)
 
         self._update_buttons()
+
+        # Keyboard shortcuts
+        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self, self.capture_photo)
+        QtWidgets.QShortcut(QtGui.QKeySequence('S'), self, self.skip_learner)
+        QtWidgets.QShortcut(QtGui.QKeySequence('F'), self, self.finish_class)
+        QtWidgets.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
+        QtWidgets.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
 
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
@@ -303,14 +321,20 @@ class MainWindow(QtWidgets.QMainWindow):
         lbl.setPixmap(pix.scaled(self.preview.size(), QtCore.Qt.KeepAspectRatio))
         vbox.addWidget(lbl)
         h = QtWidgets.QHBoxLayout()
-        retry = QtWidgets.QPushButton('Erneut fotografieren')
-        ok_btn = QtWidgets.QPushButton('OK')
+        retry = QtWidgets.QPushButton()
+        retry.setText('Erneut fotografieren<br><small>[\\]</small>')
+        retry.setTextFormat(QtCore.Qt.RichText)
+        ok_btn = QtWidgets.QPushButton()
+        ok_btn.setText('OK<br><small>[Leertaste]</small>')
+        ok_btn.setTextFormat(QtCore.Qt.RichText)
         h.addWidget(retry)
         h.addWidget(ok_btn)
         vbox.addLayout(h)
         result = {'ok': True}
         retry.clicked.connect(lambda: (result.update(ok=False), dlg.accept()))
         ok_btn.clicked.connect(dlg.accept)
+        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), dlg, ok_btn.click)
+        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Backslash), dlg, retry.click)
         dlg.exec()
         return result['ok']
 

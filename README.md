@@ -30,6 +30,15 @@ Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
 hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
 Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
 
+## Tastenkürzel
+
+- **Leertaste** – Foto aufnehmen bzw. im Review Dialog übernehmen
+- **\\** – Aufnahme verwerfen und erneut fotografieren
+- **S** – Lernende überspringen
+- **F** – Klasse abschliessen
+- **A** – Person hinzufügen
+- **C** – Kamera wechseln
+
 ## Tests
 
 ```bash
