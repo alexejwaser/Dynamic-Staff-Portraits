@@ -133,11 +133,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_buttons()
 
         # Keyboard shortcuts
-        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self, self.capture_photo)
-        QtWidgets.QShortcut(QtGui.QKeySequence('S'), self, self.skip_learner)
-        QtWidgets.QShortcut(QtGui.QKeySequence('F'), self, self.finish_class)
-        QtWidgets.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
-        QtWidgets.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self, self.capture_photo)
+        QtGui.QShortcut(QtGui.QKeySequence('S'), self, self.skip_learner)
+        QtGui.QShortcut(QtGui.QKeySequence('F'), self, self.finish_class)
+        QtGui.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
+        QtGui.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
 
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
@@ -321,8 +321,8 @@ class MainWindow(QtWidgets.QMainWindow):
         result = {'ok': True}
         retry.clicked.connect(lambda: (result.update(ok=False), dlg.accept()))
         ok_btn.clicked.connect(dlg.accept)
-        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), dlg, ok_btn.click)
-        QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Backslash), dlg, retry.click)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), dlg, ok_btn.click)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Backslash), dlg, retry.click)
         dlg.exec()
         return result['ok']
 
