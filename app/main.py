@@ -6,7 +6,6 @@ from app.core.config.settings import Settings
 from app.core.util.logging import setup_logging
 from app.ui.main_window import MainWindow
 
-
 def main():
     settings = Settings.load()
     setup_logging(Path('logs'))
