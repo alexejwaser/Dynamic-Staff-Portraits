@@ -4,6 +4,7 @@ from pathlib import Path
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from .settings_dialog import SettingsDialog
+from .class_search_dialog import ClassSearchDialog
 from ..core.imaging.processor import process_image
 from ..core.util.paths import class_output_dir, new_learner_dir
 from ..core.excel.reader import ExcelReader, Learner
@@ -63,6 +64,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class = QtWidgets.QComboBox()
         self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setMaxVisibleItems(25)
+        self.btn_search_class = QtWidgets.QToolButton()
+        search_icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView)
+        self.btn_search_class.setIcon(search_icon)
+        self.btn_search_class.setToolTip('Klasse suchen')
         self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
         self.btn_skip = QtWidgets.QPushButton('Überspringen')
         self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
@@ -71,8 +76,13 @@ class MainWindow(QtWidgets.QMainWindow):
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
         self.btn_settings.setIcon(icon)
         self.btn_settings.setToolTip('Einstellungen')
-        for w in [self.btn_excel, self.cmb_location, self.cmb_class,
-                  self.btn_capture, self.btn_skip, self.btn_add_person,
+        for w in [self.btn_excel, self.cmb_location]:
+            control.addWidget(w)
+        class_layout = QtWidgets.QHBoxLayout()
+        class_layout.addWidget(self.cmb_class)
+        class_layout.addWidget(self.btn_search_class)
+        control.addLayout(class_layout)
+        for w in [self.btn_capture, self.btn_skip, self.btn_add_person,
                   self.btn_finish, self.btn_settings]:
             control.addWidget(w)
         control.addStretch()
@@ -115,6 +125,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_finish.clicked.connect(self.finish_class)
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.btn_settings.clicked.connect(self.open_settings)
+        self.btn_search_class.clicked.connect(self.search_class)
 
         self._update_buttons()
 
@@ -131,8 +142,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.reader or not location:
             return
         self.cmb_class.clear()
-        self.cmb_class.addItems(self.reader.classes_for_location(location))
+        classes = self.reader.classes_for_location(location)
+        self.cmb_class.addItems(classes)
+        self.current_classes = classes
         self._update_buttons()
+
+    def search_class(self):
+        if not getattr(self, 'current_classes', None):
+            return
+        dlg = ClassSearchDialog(self.current_classes, self)
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            selected = dlg.selected_class()
+            if selected:
+                idx = self.cmb_class.findText(selected, QtCore.Qt.MatchExactly)
+                if idx >= 0:
+                    self.cmb_class.setCurrentIndex(idx)
 
     def load_learners(self, class_name: str):
         location = self.cmb_location.currentText()
@@ -331,3 +355,4 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_skip.setEnabled(more)
         self.btn_add_person.setEnabled(ready)
         self.btn_finish.setEnabled(ready)
+        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])))

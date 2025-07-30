@@ -24,6 +24,8 @@ gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
 Die Live-Vorschau skaliert automatisch zum Kamerabild, das Overlay passt sich
 dabei an. Unter Windows wird standardmässig die zweite erkannte Webcam
 via OpenCV verwendet.
+Neben der Klassenauswahl befindet sich ein Suchsymbol, mit dem Klassen des
+gewählten Standorts schnell gefunden werden können.
 Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
 hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
 Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
