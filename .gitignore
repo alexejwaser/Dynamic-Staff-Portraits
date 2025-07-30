@@ -6,3 +6,4 @@ venv/
 .Python
 *.tmp
 logs/
+settings.json
