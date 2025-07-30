@@ -13,9 +13,9 @@ class SettingsDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout(self)
 
         self.cmb_camera = QtWidgets.QComboBox()
-        self.cmb_camera.addItems(['Webcam', 'GPhoto2', 'Simulator'])
+        self.cmb_camera.addItems(['Webcam', 'GPhoto2', 'Canon SDK', 'Simulator'])
         backend = self.settings.kamera.get('backend', 'opencv')
-        mapping = {'opencv': 0, 'gphoto2': 1, 'simulator': 2}
+        mapping = {'opencv': 0, 'gphoto2': 1, 'canon': 2, 'simulator': 3}
         self.cmb_camera.setCurrentIndex(mapping.get(backend, 0))
         form.addRow('Kamera', self.cmb_camera)
 
@@ -53,7 +53,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
     def accept(self):
         backend_idx = self.cmb_camera.currentIndex()
-        backend = ['opencv', 'gphoto2', 'simulator'][backend_idx]
+        backend = ['opencv', 'gphoto2', 'canon', 'simulator'][backend_idx]
         self.settings.kamera['backend'] = backend
         self.settings.excelMapping = {
             'klasse': self.ed_class.text() or 'A',

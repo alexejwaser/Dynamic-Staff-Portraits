@@ -27,6 +27,12 @@ class MainWindow(QtWidgets.QMainWindow):
         cam = None
         if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
             cam = GPhoto2Camera()
+        elif backend == 'canon':
+            try:
+                from ..core.camera.canon_sdk import CanonSDKCamera
+                cam = CanonSDKCamera()
+            except Exception:
+                cam = None
         elif backend == 'simulator':
             cam = SimulatorCamera()
         else:
