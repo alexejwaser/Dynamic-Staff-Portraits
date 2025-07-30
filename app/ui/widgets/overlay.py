@@ -11,7 +11,8 @@ class Overlay(QtWidgets.QWidget):
         self.pixmap = None
         self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        # Unter Windows sorgt diese Flag-Kombination fuer korrekte Transparenz
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding,

@@ -18,6 +18,9 @@ class LiveViewWidget(QtWidgets.QWidget):
         layout.setStackingMode(QtWidgets.QStackedLayout.StackAll)
         layout.addWidget(self.label)
         layout.addWidget(self.overlay)
+        # Sicherstellen, dass das Overlay ueber dem Bild liegt
+        self.overlay.raise_()
+        self.overlay.show()
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(max(30, int(1000 / max(1, fps))))
