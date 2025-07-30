@@ -17,12 +17,27 @@ python -m app.main
 ```
 
 Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt
-und ein Hinweis mit Link zum Ordner erscheint. Die Live-Vorschau zeigt ein
-Overlay mit Drittellinien. Ein Zahnrad-Button öffnet die Einstellungen, in
-denen sich die Kameraart und Excel-Spalten konfigurieren lassen.
-Unter Windows wird standardmässig die eingebaute Webcam via OpenCV verwendet.
-Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden; sonst startet
-ein Simulator.
+und ein Hinweis mit Link zum Ordner erscheint. Über das Zahnrad können die
+Einstellungen geöffnet werden. Dort lässt sich die Kameraart, die Excel-Spalten
+und ein optionales Overlay-Bild (PNG) für die Live-Vorschau konfigurieren. Das
+gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
+Die Live-Vorschau skaliert automatisch zum Kamerabild, das Overlay passt sich
+dabei an. Unter Windows wird standardmässig die zweite erkannte Webcam
+via OpenCV verwendet.
+Neben der Klassenauswahl befindet sich ein Suchsymbol, mit dem Klassen des
+gewählten Standorts schnell gefunden werden können.
+Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
+hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
+Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
+
+## Tastenkürzel
+
+- **Leertaste** – Foto aufnehmen bzw. im Review Dialog übernehmen
+- **Esc** – Aufnahme verwerfen und erneut fotografieren
+- **S** – Lernende überspringen
+- **F** – Klasse abschliessen
+- **A** – Person hinzufügen
+- **C** – Kamera wechseln
 
 ## Tests
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from .settings_dialog import SettingsDialog
+from .class_search_dialog import ClassSearchDialog
 from ..core.imaging.processor import process_image
 from ..core.util.paths import class_output_dir, new_learner_dir
 from ..core.excel.reader import ExcelReader, Learner
@@ -27,11 +28,19 @@ class MainWindow(QtWidgets.QMainWindow):
         cam = None
         if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
             cam = GPhoto2Camera()
+        elif backend == 'canon':
+            try:
+                from ..core.camera.canon_sdk import CanonSDKCamera
+                cam = CanonSDKCamera()
+            except Exception:
+                cam = None
         elif backend == 'simulator':
             cam = SimulatorCamera()
         else:
             try:
-                cam = OpenCVCamera()
+                # In Webcam-Modus standardmaessig die zweite Kamera verwenden
+                cam = OpenCVCamera(1)
+                self.current_cam_id = 1
             except Exception:
                 cam = None
         if cam is None:
@@ -55,19 +64,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cmb_class = QtWidgets.QComboBox()
         self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setMaxVisibleItems(25)
-        self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen')
-        self.btn_skip = QtWidgets.QPushButton('Überspringen')
-        self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
-        self.btn_finish = QtWidgets.QPushButton('Fertig')
+        self.btn_search_class = QtWidgets.QToolButton()
+        search_icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView)
+        self.btn_search_class.setIcon(search_icon)
+        self.btn_search_class.setToolTip('Klasse suchen')
+        self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen\n[Leertaste]')
+
+        self.btn_skip = QtWidgets.QPushButton('Überspringen\n[S]')
+
+        self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen\n[A]')
+
+        self.btn_finish = QtWidgets.QPushButton('Fertig\n[F]')
         self.btn_settings = QtWidgets.QPushButton('')
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
         self.btn_settings.setIcon(icon)
         self.btn_settings.setToolTip('Einstellungen')
-        self.cmb_overlay = QtWidgets.QComboBox()
-        self.cmb_overlay.addItems(['Drittel', 'Fadenkreuz'])
-        for w in [self.btn_excel, self.cmb_location, self.cmb_class,
-                  self.btn_capture, self.btn_skip, self.btn_add_person,
-                  self.btn_finish, self.cmb_overlay, self.btn_settings]:
+        for w in [self.btn_excel, self.cmb_location]:
+            control.addWidget(w)
+        class_layout = QtWidgets.QHBoxLayout()
+        class_layout.addWidget(self.cmb_class)
+        class_layout.addWidget(self.btn_search_class)
+        control.addLayout(class_layout)
+        for w in [self.btn_capture, self.btn_skip, self.btn_add_person,
+                  self.btn_finish, self.btn_settings]:
             control.addWidget(w)
         control.addStretch()
         layout.addLayout(control)
@@ -76,13 +95,20 @@ class MainWindow(QtWidgets.QMainWindow):
         from .widgets.live_view_widget import LiveViewWidget
         fps = self.settings.kamera.get('liveviewFpsZiel', 20)
         self.preview = LiveViewWidget(self.camera, fps)
-        self.preview.set_overlay_mode('thirds')
+        self.preview.set_overlay_image(self.settings.overlay.get('image'))
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
-        self.label_next = QtWidgets.QLabel('')
-        self.label_next.setAlignment(QtCore.Qt.AlignCenter)
-        self.label_next.setStyleSheet('font-size:16px;')
-        preview_layout.addWidget(self.label_next)
+        name_layout = QtWidgets.QHBoxLayout()
+        self.label_current = QtWidgets.QLabel('')
+        self.label_current.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.label_current.setStyleSheet('font-size:16px;')
+        self.label_upcoming = QtWidgets.QLabel('')
+        self.label_upcoming.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.label_upcoming.setStyleSheet('font-size:12px; color: gray;')
+        name_layout.addWidget(self.label_current)
+        name_layout.addStretch()
+        name_layout.addWidget(self.label_upcoming)
+        preview_layout.addLayout(name_layout)
         preview_layout.addWidget(self.preview)
         self.btn_switch_camera = QtWidgets.QPushButton('Kamera wechseln')
         self.btn_switch_camera.setFixedWidth(120)
@@ -101,8 +127,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_add_person.clicked.connect(self.add_person)
         self.btn_finish.clicked.connect(self.finish_class)
         self.btn_switch_camera.clicked.connect(self.switch_camera)
-        self.cmb_overlay.currentTextChanged.connect(self.change_overlay)
         self.btn_settings.clicked.connect(self.open_settings)
+        self.btn_search_class.clicked.connect(self.search_class)
+
+        self._update_buttons()
+
+        # Keyboard shortcuts
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self, self.capture_photo)
+        QtGui.QShortcut(QtGui.QKeySequence('S'), self, self.skip_learner)
+        QtGui.QShortcut(QtGui.QKeySequence('F'), self, self.finish_class)
+        QtGui.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
+        QtGui.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
+
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
@@ -110,12 +146,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reader = ExcelReader(Path(path), self.settings.excelMapping)
         self.cmb_location.clear()
         self.cmb_location.addItems(self.reader.locations())
+        self._update_buttons()
 
     def update_classes(self, location: str):
         if not self.reader or not location:
             return
         self.cmb_class.clear()
-        self.cmb_class.addItems(self.reader.classes_for_location(location))
+        classes = self.reader.classes_for_location(location)
+        self.cmb_class.addItems(classes)
+        self.current_classes = classes
+        self._update_buttons()
+
+    def search_class(self):
+        if not getattr(self, 'current_classes', None):
+            return
+        dlg = ClassSearchDialog(self.current_classes, self)
+        if dlg.exec() == QtWidgets.QDialog.Accepted:
+            selected = dlg.selected_class()
+            if selected:
+                idx = self.cmb_class.findText(selected, QtCore.Qt.MatchExactly)
+                if idx >= 0:
+                    self.cmb_class.setCurrentIndex(idx)
 
     def load_learners(self, class_name: str):
         location = self.cmb_location.currentText()
@@ -124,14 +175,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.learners = self.reader.learners(location, class_name)
         self.current = 0
         self.show_next()
+        self._update_buttons()
 
     def show_next(self):
         if self.current >= len(self.learners):
-            self.label_next.setText('Klasse abgeschlossen')
+            self.label_current.setText('Klasse abgeschlossen')
+            self.label_upcoming.setText('')
+            self._update_buttons()
             return
         l = self.learners[self.current]
-        txt = f"{l.vorname} {l.nachname}"
-        self.label_next.setText(txt)
+        self.label_current.setText(f"{l.vorname} {l.nachname}")
+        if self.current + 1 < len(self.learners):
+            n = self.learners[self.current + 1]
+            self.label_upcoming.setText(f"{n.vorname} {n.nachname}")
+        else:
+            self.label_upcoming.setText('')
+        self._update_buttons()
+
     def capture_photo(self):
         if self.current >= len(self.learners):
             return
@@ -168,6 +228,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             raw_path.unlink(missing_ok=True)
         self.show_next()
+        self._update_buttons()
 
     def skip_learner(self):
         if self.current >= len(self.learners):
@@ -180,7 +241,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ok:
             return
         learner = self.learners[self.current]
-        missed = MissedWriter(Path('Verpasste_Termine.xlsx'))
+        missed = MissedWriter(self.settings.missedPath)
         entry = MissedEntry(
             self.cmb_location.currentText(),
             learner.klasse,
@@ -193,6 +254,7 @@ class MainWindow(QtWidgets.QMainWindow):
         missed.append(entry)
         self.current += 1
         self.show_next()
+        self._update_buttons()
 
     def finish_class(self):
         location = self.cmb_location.currentText()
@@ -219,6 +281,7 @@ class MainWindow(QtWidgets.QMainWindow):
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
+        self._update_buttons()
 
     def add_person(self):
         dlg = QtWidgets.QDialog(self)
@@ -239,12 +302,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 learner = Learner(self.cmb_class.currentText(), nach, vor, '', True)
                 self.learners.insert(self.current, learner)
                 self.show_next()
-
-    def change_overlay(self, text: str):
-        if text == 'Fadenkreuz':
-            self.preview.set_overlay_mode('crosshair')
-        else:
-            self.preview.set_overlay_mode('thirds')
+                self._update_buttons()
 
     def _show_review(self, path: Path) -> bool:
         dlg = QtWidgets.QDialog(self)
@@ -255,14 +313,16 @@ class MainWindow(QtWidgets.QMainWindow):
         lbl.setPixmap(pix.scaled(self.preview.size(), QtCore.Qt.KeepAspectRatio))
         vbox.addWidget(lbl)
         h = QtWidgets.QHBoxLayout()
-        retry = QtWidgets.QPushButton('Erneut fotografieren')
-        ok_btn = QtWidgets.QPushButton('OK')
+        retry = QtWidgets.QPushButton('Erneut fotografieren\n[Esc]')
+        ok_btn = QtWidgets.QPushButton('OK\n[Leertaste]')
         h.addWidget(retry)
         h.addWidget(ok_btn)
         vbox.addLayout(h)
         result = {'ok': True}
         retry.clicked.connect(lambda: (result.update(ok=False), dlg.accept()))
         ok_btn.clicked.connect(dlg.accept)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), dlg, ok_btn.click)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), dlg, retry.click)
         dlg.exec()
         return result['ok']
 
@@ -287,11 +347,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
-        before = self.settings.kamera.get('backend')
+        before_backend = self.settings.kamera.get('backend')
+        before_overlay = self.settings.overlay.get('image')
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            if self.settings.kamera.get('backend') != before:
+            if self.settings.kamera.get('backend') != before_backend:
                 self.camera.stop_liveview()
                 self.camera = self._init_camera()
                 if hasattr(self.camera, 'start_liveview'):
                     self.camera.start_liveview()
                 self.preview.set_camera(self.camera)
+            if self.settings.overlay.get('image') != before_overlay:
+                self.preview.set_overlay_image(self.settings.overlay.get('image'))
+        self._update_buttons()
+
+    def _update_buttons(self):
+        ready = bool(self.reader) and bool(self.cmb_class.currentText())
+        more = ready and self.current < len(self.learners)
+        self.btn_capture.setEnabled(more)
+        self.btn_skip.setEnabled(more)
+        self.btn_add_person.setEnabled(ready)
+        self.btn_finish.setEnabled(ready)
+        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])))
