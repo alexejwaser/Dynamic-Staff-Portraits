@@ -12,8 +12,11 @@ class LiveViewWidget(QtWidgets.QWidget):
         self.label = QtWidgets.QLabel()
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setStyleSheet("background-color: black;")
-        # Feste Groesse im Seitenverhaeltnis 3:4
-        self.label.setFixedSize(480, 640)
+        self.label.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding,
+        )
+        self.frame_ratio = 3 / 4
         self.overlay = Overlay()
         layout = QtWidgets.QStackedLayout(self)
         layout.setStackingMode(QtWidgets.QStackedLayout.StackAll)
@@ -26,8 +29,30 @@ class LiveViewWidget(QtWidgets.QWidget):
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(max(30, int(1000 / max(1, fps))))
 
+    def _update_label_geometry(self):
+        if self.frame_ratio <= 0:
+            return
+        w, h = self.width(), self.height()
+        if w / h > self.frame_ratio:
+            new_w = int(h * self.frame_ratio)
+            new_h = h
+        else:
+            new_w = w
+            new_h = int(w / self.frame_ratio)
+        x = (w - new_w) // 2
+        y = (h - new_h) // 2
+        self.label.setGeometry(x, y, new_w, new_h)
+        self.overlay.setGeometry(self.label.geometry())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_label_geometry()
+
     def sizeHint(self):
-        return QtCore.QSize(480, 640)
+        if self.frame_ratio >= 1:
+            return QtCore.QSize(480, int(480 / self.frame_ratio))
+        else:
+            return QtCore.QSize(int(640 * self.frame_ratio), 640)
 
     def set_camera(self, camera):
         self.camera = camera
@@ -49,12 +74,13 @@ class LiveViewWidget(QtWidgets.QWidget):
                 finally:
                     path.unlink(missing_ok=True)
             if not img.isNull():
+                self.frame_ratio = img.width() / img.height()
+                self._update_label_geometry()
                 pix = QtGui.QPixmap.fromImage(img).scaled(
                     self.label.size(),
-                    QtCore.Qt.KeepAspectRatioByExpanding,
+                    QtCore.Qt.KeepAspectRatio,
                     QtCore.Qt.SmoothTransformation,
                 )
                 self.label.setPixmap(pix)
-                self.overlay.resize(self.label.size())
         except Exception as e:
             self.label.setText(str(e))
