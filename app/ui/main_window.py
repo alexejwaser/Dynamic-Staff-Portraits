@@ -63,11 +63,9 @@ class MainWindow(QtWidgets.QMainWindow):
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
         self.btn_settings.setIcon(icon)
         self.btn_settings.setToolTip('Einstellungen')
-        self.cmb_overlay = QtWidgets.QComboBox()
-        self.cmb_overlay.addItems(['Drittel', 'Fadenkreuz'])
         for w in [self.btn_excel, self.cmb_location, self.cmb_class,
                   self.btn_capture, self.btn_skip, self.btn_add_person,
-                  self.btn_finish, self.cmb_overlay, self.btn_settings]:
+                  self.btn_finish, self.btn_settings]:
             control.addWidget(w)
         control.addStretch()
         layout.addLayout(control)
@@ -76,7 +74,7 @@ class MainWindow(QtWidgets.QMainWindow):
         from .widgets.live_view_widget import LiveViewWidget
         fps = self.settings.kamera.get('liveviewFpsZiel', 20)
         self.preview = LiveViewWidget(self.camera, fps)
-        self.preview.set_overlay_mode('thirds')
+        self.preview.set_overlay_image(self.settings.overlay.get('image'))
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
         name_layout = QtWidgets.QHBoxLayout()
@@ -108,7 +106,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_add_person.clicked.connect(self.add_person)
         self.btn_finish.clicked.connect(self.finish_class)
         self.btn_switch_camera.clicked.connect(self.switch_camera)
-        self.cmb_overlay.currentTextChanged.connect(self.change_overlay)
         self.btn_settings.clicked.connect(self.open_settings)
 
     def load_excel(self):
@@ -254,12 +251,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.learners.insert(self.current, learner)
                 self.show_next()
 
-    def change_overlay(self, text: str):
-        if text == 'Fadenkreuz':
-            self.preview.set_overlay_mode('crosshair')
-        else:
-            self.preview.set_overlay_mode('thirds')
-
     def _show_review(self, path: Path) -> bool:
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle('Aufnahme ansehen')
@@ -301,11 +292,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
-        before = self.settings.kamera.get('backend')
+        before_backend = self.settings.kamera.get('backend')
+        before_overlay = self.settings.overlay.get('image')
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            if self.settings.kamera.get('backend') != before:
+            if self.settings.kamera.get('backend') != before_backend:
                 self.camera.stop_liveview()
                 self.camera = self._init_camera()
                 if hasattr(self.camera, 'start_liveview'):
                     self.camera.start_liveview()
                 self.preview.set_camera(self.camera)
+            if self.settings.overlay.get('image') != before_overlay:
+                self.preview.set_overlay_image(self.settings.overlay.get('image'))

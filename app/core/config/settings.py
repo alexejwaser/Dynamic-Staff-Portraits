@@ -16,7 +16,12 @@ def _parse_ratio(value):
 DEFAULTS = {
     'ausgabeBasisPfad': 'output',
     'bild': {'breite': 1200, 'hoehe': 1600, 'qualitaet': 90, 'seitenverhaeltnis': '3:4'},
-    'overlay': {'drittellinien': True, 'horizonte': False, 'deckkraft': 0.3},
+    'overlay': {
+        'drittellinien': True,
+        'horizonte': False,
+        'deckkraft': 0.3,
+        'image': ''
+    },
     'kamera': {
         'backend': 'opencv',
         'liveviewFpsZiel': 20,
@@ -49,6 +54,11 @@ class Settings:
             path.write_text(json.dumps(data, indent=2), encoding='utf-8')
         data['ausgabeBasisPfad'] = Path(data['ausgabeBasisPfad'])
         data['bild']['seitenverhaeltnis'] = _parse_ratio(data['bild'].get('seitenverhaeltnis', '3:4'))
+        if data.get('overlay') and 'image' in data['overlay']:
+            img = data['overlay']['image']
+            data['overlay']['image'] = str(img) if img else ''
+        else:
+            data.setdefault('overlay', {}).setdefault('image', '')
         return Settings(**data)
 
     def save(self, path: Path = CONFIG_PATH) -> None:
@@ -57,4 +67,5 @@ class Settings:
         ratio = data['bild'].get('seitenverhaeltnis', (3, 4))
         if isinstance(ratio, tuple):
             data['bild']['seitenverhaeltnis'] = f"{ratio[0]}:{ratio[1]}"
+        data['overlay']['image'] = data['overlay'].get('image', '')
         path.write_text(json.dumps(data, indent=2), encoding='utf-8')

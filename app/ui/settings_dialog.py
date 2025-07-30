@@ -19,6 +19,15 @@ class SettingsDialog(QtWidgets.QDialog):
         self.cmb_camera.setCurrentIndex(mapping.get(backend, 0))
         form.addRow('Kamera', self.cmb_camera)
 
+        self.overlay_path = self.settings.overlay.get('image', '')
+        self.lbl_overlay = QtWidgets.QLabel(Path(self.overlay_path).name if self.overlay_path else 'Kein Overlay')
+        self.btn_overlay = QtWidgets.QPushButton('Overlay wählen...')
+        h_overlay = QtWidgets.QHBoxLayout()
+        h_overlay.addWidget(self.lbl_overlay)
+        h_overlay.addWidget(self.btn_overlay)
+        form.addRow('Overlay-Bild', h_overlay)
+        self.btn_overlay.clicked.connect(self.choose_overlay)
+
         emap = self.settings.excelMapping
         self.ed_class = QtWidgets.QLineEdit(emap.get('klasse', 'A'))
         self.ed_last = QtWidgets.QLineEdit(emap.get('nachname', 'B'))
@@ -36,6 +45,12 @@ class SettingsDialog(QtWidgets.QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
+    def choose_overlay(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'PNG wählen', filter='PNG (*.png)')
+        if path:
+            self.overlay_path = path
+            self.lbl_overlay.setText(Path(path).name)
+
     def accept(self):
         backend_idx = self.cmb_camera.currentIndex()
         backend = ['opencv', 'gphoto2', 'simulator'][backend_idx]
@@ -46,5 +61,6 @@ class SettingsDialog(QtWidgets.QDialog):
             'vorname': self.ed_first.text() or 'C',
             'schuelerId': self.ed_id.text() or 'D',
         }
+        self.settings.overlay['image'] = self.overlay_path
         self.settings.save()
         super().accept()

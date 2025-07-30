@@ -25,8 +25,8 @@ class LiveViewWidget(QtWidgets.QWidget):
     def set_camera(self, camera):
         self.camera = camera
 
-    def set_overlay_mode(self, mode: str):
-        self.overlay.set_mode(mode)
+    def set_overlay_image(self, path: str | Path | None):
+        self.overlay.set_image(path)
 
     def update_frame(self):
         try:
