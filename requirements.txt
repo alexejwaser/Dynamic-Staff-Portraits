@@ -1,0 +1,5 @@
+PySide6
+openpyxl
+Pillow
+opencv-python-headless
+pytest
