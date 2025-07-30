@@ -313,7 +313,7 @@ class MainWindow(QtWidgets.QMainWindow):
         lbl.setPixmap(pix.scaled(self.preview.size(), QtCore.Qt.KeepAspectRatio))
         vbox.addWidget(lbl)
         h = QtWidgets.QHBoxLayout()
-        retry = QtWidgets.QPushButton('Erneut fotografieren\n[\\]')
+        retry = QtWidgets.QPushButton('Erneut fotografieren\n[Esc]')
         ok_btn = QtWidgets.QPushButton('OK\n[Leertaste]')
         h.addWidget(retry)
         h.addWidget(ok_btn)
@@ -322,7 +322,7 @@ class MainWindow(QtWidgets.QMainWindow):
         retry.clicked.connect(lambda: (result.update(ok=False), dlg.accept()))
         ok_btn.clicked.connect(dlg.accept)
         QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), dlg, ok_btn.click)
-        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Backslash), dlg, retry.click)
+        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), dlg, retry.click)
         dlg.exec()
         return result['ok']
 

@@ -33,7 +33,7 @@ Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
 ## Tastenkürzel
 
 - **Leertaste** – Foto aufnehmen bzw. im Review Dialog übernehmen
-- **\\** – Aufnahme verwerfen und erneut fotografieren
+- **Esc** – Aufnahme verwerfen und erneut fotografieren
 - **S** – Lernende überspringen
 - **F** – Klasse abschliessen
 - **A** – Person hinzufügen
