@@ -241,7 +241,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not ok:
             return
         learner = self.learners[self.current]
-        missed = MissedWriter(Path('Verpasste_Termine.xlsx'))
+        missed = MissedWriter(self.settings.missedPath)
         entry = MissedEntry(
             self.cmb_location.currentText(),
             learner.klasse,
