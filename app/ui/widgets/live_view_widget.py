@@ -12,7 +12,6 @@ class LiveViewWidget(QtWidgets.QWidget):
         self.label = QtWidgets.QLabel()
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setStyleSheet("background-color: black;")
-        self.label.setMinimumSize(320, 240)
         self.overlay = Overlay()
         layout = QtWidgets.QStackedLayout(self)
         layout.setStackingMode(QtWidgets.QStackedLayout.StackAll)
@@ -24,6 +23,9 @@ class LiveViewWidget(QtWidgets.QWidget):
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(max(30, int(1000 / max(1, fps))))
+
+    def sizeHint(self):
+        return self.label.sizeHint()
 
     def set_camera(self, camera):
         self.camera = camera
@@ -46,6 +48,9 @@ class LiveViewWidget(QtWidgets.QWidget):
                     path.unlink(missing_ok=True)
             if not img.isNull():
                 pix = QtGui.QPixmap.fromImage(img)
-                self.label.setPixmap(pix.scaled(self.size(), QtCore.Qt.KeepAspectRatio))
+                self.label.setPixmap(pix)
+                self.label.adjustSize()
+                self.overlay.resize(self.label.size())
+                self.resize(self.label.size())
         except Exception as e:
             self.label.setText(str(e))

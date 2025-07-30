@@ -37,7 +37,9 @@ class MainWindow(QtWidgets.QMainWindow):
             cam = SimulatorCamera()
         else:
             try:
-                cam = OpenCVCamera()
+                # In Webcam-Modus standardmaessig die zweite Kamera verwenden
+                cam = OpenCVCamera(1)
+                self.current_cam_id = 1
             except Exception:
                 cam = None
         if cam is None:

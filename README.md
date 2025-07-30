@@ -21,7 +21,7 @@ und ein Hinweis mit Link zum Ordner erscheint. Über das Zahnrad können die
 Einstellungen geöffnet werden. Dort lässt sich die Kameraart, die Excel-Spalten
 und ein optionales Overlay-Bild (PNG) für die Live-Vorschau konfigurieren. Das
 gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
-Unter Windows wird standardmässig die eingebaute Webcam via OpenCV verwendet.
+Unter Windows wird standardmässig die zweite erkannte Webcam via OpenCV verwendet.
 Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
 hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
 Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
