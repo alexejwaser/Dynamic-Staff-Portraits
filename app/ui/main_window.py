@@ -108,6 +108,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.btn_settings.clicked.connect(self.open_settings)
 
+        self._update_buttons()
+
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
@@ -115,12 +117,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reader = ExcelReader(Path(path), self.settings.excelMapping)
         self.cmb_location.clear()
         self.cmb_location.addItems(self.reader.locations())
+        self._update_buttons()
 
     def update_classes(self, location: str):
         if not self.reader or not location:
             return
         self.cmb_class.clear()
         self.cmb_class.addItems(self.reader.classes_for_location(location))
+        self._update_buttons()
 
     def load_learners(self, class_name: str):
         location = self.cmb_location.currentText()
@@ -129,11 +133,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.learners = self.reader.learners(location, class_name)
         self.current = 0
         self.show_next()
+        self._update_buttons()
 
     def show_next(self):
         if self.current >= len(self.learners):
             self.label_current.setText('Klasse abgeschlossen')
             self.label_upcoming.setText('')
+            self._update_buttons()
             return
         l = self.learners[self.current]
         self.label_current.setText(f"{l.vorname} {l.nachname}")
@@ -142,6 +148,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_upcoming.setText(f"{n.vorname} {n.nachname}")
         else:
             self.label_upcoming.setText('')
+        self._update_buttons()
 
     def capture_photo(self):
         if self.current >= len(self.learners):
@@ -179,6 +186,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             raw_path.unlink(missing_ok=True)
         self.show_next()
+        self._update_buttons()
 
     def skip_learner(self):
         if self.current >= len(self.learners):
@@ -204,6 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
         missed.append(entry)
         self.current += 1
         self.show_next()
+        self._update_buttons()
 
     def finish_class(self):
         location = self.cmb_location.currentText()
@@ -230,6 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
+        self._update_buttons()
 
     def add_person(self):
         dlg = QtWidgets.QDialog(self)
@@ -250,6 +260,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 learner = Learner(self.cmb_class.currentText(), nach, vor, '', True)
                 self.learners.insert(self.current, learner)
                 self.show_next()
+                self._update_buttons()
 
     def _show_review(self, path: Path) -> bool:
         dlg = QtWidgets.QDialog(self)
@@ -303,3 +314,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.preview.set_camera(self.camera)
             if self.settings.overlay.get('image') != before_overlay:
                 self.preview.set_overlay_image(self.settings.overlay.get('image'))
+        self._update_buttons()
+
+    def _update_buttons(self):
+        ready = bool(self.reader) and bool(self.cmb_class.currentText())
+        more = ready and self.current < len(self.learners)
+        self.btn_capture.setEnabled(more)
+        self.btn_skip.setEnabled(more)
+        self.btn_add_person.setEnabled(ready)
+        self.btn_finish.setEnabled(ready)
