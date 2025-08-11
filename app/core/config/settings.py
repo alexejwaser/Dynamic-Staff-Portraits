@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import os
 
 
 def _parse_ratio(value):
@@ -34,7 +35,9 @@ DEFAULTS = {
     'excelMapping': {'klasse': 'A', 'nachname': 'B', 'vorname': 'C', 'schuelerId': 'D', 'fotografiert': 'E', 'aufnahmedatum': 'F'},
 }
 
-CONFIG_PATH = Path('settings.json')
+CONFIG_DIR = Path(os.getenv("APPDATA", Path.home())) / "LegicCardCreator"
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = CONFIG_DIR / "settings.json"
 
 @dataclass
 class Settings:
