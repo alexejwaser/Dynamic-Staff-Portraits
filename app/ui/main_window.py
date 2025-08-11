@@ -1,6 +1,9 @@
 # app/ui/main_window.py
 from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
+from datetime import datetime
+import psutil
+
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from .settings_dialog import SettingsDialog
@@ -9,7 +12,6 @@ from ..core.imaging.processor import process_image
 from ..core.util.paths import class_output_dir, new_learner_dir
 from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
-from datetime import datetime
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings: Settings):
@@ -192,8 +194,25 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_upcoming.setText('')
         self._update_buttons()
 
+    def _excel_running(self) -> bool:
+        for proc in psutil.process_iter(['name']):
+            try:
+                name = proc.info['name'] or ''
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            if 'excel' in name.lower():
+                return True
+        return False
+
     def capture_photo(self):
         if self.current >= len(self.learners):
+            return
+        if self._excel_running():
+            QtWidgets.QMessageBox.warning(
+                self,
+                'Excel geöffnet',
+                'Schliesse Excel um die App zu benutzen!'
+            )
             return
         learner = self.learners[self.current]
         location = self.cmb_location.currentText()

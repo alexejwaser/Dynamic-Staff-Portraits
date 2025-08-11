@@ -32,7 +32,14 @@ DEFAULTS = {
     },
     'zip': {'maxAnzahl': None, 'maxGroesseMB': None},
     'copyright': {'artist': '', 'copyright': ''},
-    'excelMapping': {'klasse': 'A', 'nachname': 'B', 'vorname': 'C', 'schuelerId': 'D', 'fotografiert': 'E', 'aufnahmedatum': 'F'},
+    'excelMapping': {
+        'klasse': 'A',
+        'nachname': 'B',
+        'vorname': 'C',
+        'schuelerId': 'D',
+        'fotografiert': 'E',
+        'aufnahmedatum': 'F',
+    },
 }
 
 CONFIG_DIR = Path(os.getenv("APPDATA", Path.home())) / "LegicCardCreator"
