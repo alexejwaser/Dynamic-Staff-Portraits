@@ -224,6 +224,9 @@ class MainWindow(QtWidgets.QMainWindow):
             raw_path.unlink(missing_ok=True)
             return
         if self._show_review(raw_path):
+            if not learner.is_new:
+                date_str = datetime.now().strftime('%d.%m.%Y')
+                self.reader.mark_photographed(location, learner.row, True, date_str)
             self.current += 1
         else:
             raw_path.unlink(missing_ok=True)
@@ -252,6 +255,8 @@ class MainWindow(QtWidgets.QMainWindow):
             reason,
         )
         missed.append(entry)
+        if not learner.is_new:
+            self.reader.mark_photographed(self.cmb_location.currentText(), learner.row, False)
         self.current += 1
         self.show_next()
         self._update_buttons()
@@ -299,7 +304,7 @@ class MainWindow(QtWidgets.QMainWindow):
             vor = first.text().strip()
             nach = last.text().strip()
             if vor and nach:
-                learner = Learner(self.cmb_class.currentText(), nach, vor, '', True)
+                learner = Learner(self.cmb_class.currentText(), nach, vor, '', is_new=True)
                 self.learners.insert(self.current, learner)
                 self.show_next()
                 self._update_buttons()

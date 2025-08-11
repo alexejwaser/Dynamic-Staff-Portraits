@@ -31,7 +31,7 @@ DEFAULTS = {
     },
     'zip': {'maxAnzahl': None, 'maxGroesseMB': None},
     'copyright': {'artist': '', 'copyright': ''},
-    'excelMapping': {'klasse': 'A', 'nachname': 'B', 'vorname': 'C', 'schuelerId': 'D'},
+    'excelMapping': {'klasse': 'A', 'nachname': 'B', 'vorname': 'C', 'schuelerId': 'D', 'fotografiert': 'E', 'aufnahmedatum': 'F'},
 }
 
 CONFIG_PATH = Path('settings.json')

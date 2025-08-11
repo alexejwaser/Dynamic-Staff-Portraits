@@ -19,7 +19,10 @@ python -m app.main
 Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt
 und ein Hinweis mit Link zum Ordner erscheint. Über das Zahnrad können die
 Einstellungen geöffnet werden. Dort lässt sich die Kameraart, die Excel-Spalten
-und ein optionales Overlay-Bild (PNG) für die Live-Vorschau konfigurieren. Das
+(inkl. der Spalte **Fotografiert?**, welche beim Fotografieren automatisch mit
+"Ja" bzw. "Nein" ausgefüllt wird, sowie **Aufnahmedatum**, das das Datum des
+Fotos speichert) und ein optionales Overlay-Bild (PNG) für die
+Live-Vorschau konfigurieren. Das
 gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
 Die Live-Vorschau skaliert automatisch zum Kamerabild, das Overlay passt sich
 dabei an. Unter Windows wird standardmässig die zweite erkannte Webcam
