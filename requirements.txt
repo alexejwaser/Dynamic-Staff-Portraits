@@ -3,3 +3,4 @@ openpyxl
 Pillow
 opencv-python-headless
 pytest
+psutil
