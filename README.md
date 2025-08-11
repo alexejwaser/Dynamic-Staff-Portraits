@@ -1,2 +1,49 @@
-# Dynamic-Staff-Portraits
-This app helps with taking portrait photos of your staff members.
+# Dynamic Staff Portraits
+
+Eine Desktop-Anwendung zur effizienten Erstellung von Portraitfotos.
+
+## Installation
+
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Starten
+
+```bash
+python -m app.main
+```
+
+Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt
+und ein Hinweis mit Link zum Ordner erscheint. Über das Zahnrad können die
+Einstellungen geöffnet werden. Dort lässt sich die Kameraart, die Excel-Spalten
+(inkl. der Spalte **Fotografiert?**, welche beim Fotografieren automatisch mit
+"Ja" bzw. "Nein" ausgefüllt wird, sowie **Aufnahmedatum**, das das Datum des
+Fotos speichert) und ein optionales Overlay-Bild (PNG) für die
+Live-Vorschau konfigurieren. Das
+gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
+Die Live-Vorschau skaliert automatisch zum Kamerabild, das Overlay passt sich
+dabei an. Unter Windows wird standardmässig die zweite erkannte Webcam
+via OpenCV verwendet.
+Neben der Klassenauswahl befindet sich ein Suchsymbol, mit dem Klassen des
+gewählten Standorts schnell gefunden werden können.
+Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
+hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
+Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
+
+## Tastenkürzel
+
+- **Leertaste** – Foto aufnehmen bzw. im Review Dialog übernehmen
+- **Esc** – Aufnahme verwerfen und erneut fotografieren
+- **S** – Lernende überspringen
+- **F** – Klasse abschliessen
+- **A** – Person hinzufügen
+- **C** – Kamera wechseln
+
+## Tests
+
+```bash
+pytest
+```
