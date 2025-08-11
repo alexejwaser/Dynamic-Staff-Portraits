@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import List
 from pathlib import Path
 import openpyxl
-
 @dataclass
 class Learner:
     klasse: str
