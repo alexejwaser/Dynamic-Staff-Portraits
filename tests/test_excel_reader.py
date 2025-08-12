@@ -13,8 +13,9 @@ def create_sample(path: Path):
     ws['D1'] = 'SchuelerID'
     ws['E1'] = 'Fotografiert?'
     ws['F1'] = 'Aufnahmedatum'
-    ws.append(['INF', 'Meier', 'Hans', '001', '', ''])
-    ws.append(['INF', 'Muster', 'Eva', '002', '', ''])
+    ws['G1'] = 'Grund'
+    ws.append(['INF', 'Meier', 'Hans', '001', '', '', ''])
+    ws.append(['INF', 'Muster', 'Eva', '002', '', '', ''])
     wb.save(path)
 
 def test_read(tmp_path):
@@ -22,7 +23,7 @@ def test_read(tmp_path):
     create_sample(xl)
     mapping = {
         'klasse':'A', 'nachname':'B', 'vorname':'C', 'schuelerId':'D',
-        'fotografiert':'E', 'aufnahmedatum':'F'
+        'fotografiert':'E', 'aufnahmedatum':'F', 'grund':'G'
     }
     reader = ExcelReader(xl, mapping)
     classes = reader.classes_for_location('Standort1')
@@ -32,10 +33,12 @@ def test_read(tmp_path):
     assert learners[0].nachname == 'Meier'
     # mark photographed and skipped
     reader.mark_photographed('Standort1', learners[0].row, True, '01.01.2024')
-    reader.mark_photographed('Standort1', learners[1].row, False)
+    reader.mark_photographed('Standort1', learners[1].row, False, reason='Krank')
     wb = openpyxl.load_workbook(xl)
     ws = wb['Standort1']
     assert ws['E2'].value == 'Ja'
     assert ws['F2'].value == '01.01.2024'
+    assert ws['G2'].value is None
     assert ws['E3'].value == 'Nein'
     assert ws['F3'].value is None
+    assert ws['G3'].value == 'Krank'

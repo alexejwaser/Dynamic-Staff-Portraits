@@ -257,7 +257,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def skip_learner(self):
         if self.current >= len(self.learners):
             return
-        reasons = ['Abwesend', 'Verweigert', 'Technisches Problem', 'Keine Angabe', 'Anderer Grund...']
+        reasons = ['Krank', 'Verweigert', 'Anderer Grund...']
         reason, ok = QtWidgets.QInputDialog.getItem(
             self,
             'Grund',
@@ -276,8 +276,6 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             if not ok:
                 return
-        elif reason == 'Keine Angabe':
-            reason = ''
         learner = self.learners[self.current]
         missed = MissedWriter(self.settings.missedPath)
         entry = MissedEntry(
@@ -295,7 +293,12 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
         if not learner.is_new:
             try:
-                self.reader.mark_photographed(self.cmb_location.currentText(), learner.row, False)
+                self.reader.mark_photographed(
+                    self.cmb_location.currentText(),
+                    learner.row,
+                    False,
+                    reason=reason,
+                )
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
         self.current += 1

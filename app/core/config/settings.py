@@ -39,6 +39,7 @@ DEFAULTS = {
         'schuelerId': 'D',
         'fotografiert': 'E',
         'aufnahmedatum': 'F',
+        'grund': 'G',
     },
 }
 

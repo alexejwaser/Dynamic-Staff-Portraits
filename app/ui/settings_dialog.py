@@ -55,12 +55,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self.ed_id = QtWidgets.QLineEdit(emap.get('schuelerId', 'D'))
         self.ed_photo = QtWidgets.QLineEdit(emap.get('fotografiert', 'E'))
         self.ed_date = QtWidgets.QLineEdit(emap.get('aufnahmedatum', 'F'))
+        self.ed_reason = QtWidgets.QLineEdit(emap.get('grund', 'G'))
         form.addRow('Spalte Klasse', self.ed_class)
         form.addRow('Spalte Nachname', self.ed_last)
         form.addRow('Spalte Vorname', self.ed_first)
         form.addRow('Spalte SchülerID', self.ed_id)
         form.addRow('Spalte Fotografiert', self.ed_photo)
         form.addRow('Spalte Aufnahmedatum', self.ed_date)
+        form.addRow('Spalte Grund', self.ed_reason)
 
         self.buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
@@ -100,6 +102,7 @@ class SettingsDialog(QtWidgets.QDialog):
             'schuelerId': self.ed_id.text() or 'D',
             'fotografiert': self.ed_photo.text() or 'E',
             'aufnahmedatum': self.ed_date.text() or 'F',
+            'grund': self.ed_reason.text() or 'G',
         }
         self.settings.overlay['image'] = self.overlay_path
         self.settings.ausgabeBasisPfad = Path(self.output_dir)
