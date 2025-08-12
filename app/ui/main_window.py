@@ -9,7 +9,7 @@ from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from .settings_dialog import SettingsDialog
 from .class_search_dialog import ClassSearchDialog
 from ..core.imaging.processor import process_image
-from ..core.util.paths import class_output_dir, new_learner_dir
+from ..core.util.paths import class_output_dir, new_learner_dir, unique_file_path
 from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
 
@@ -30,12 +30,6 @@ class MainWindow(QtWidgets.QMainWindow):
         cam = None
         if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
             cam = GPhoto2Camera()
-        elif backend == 'canon':
-            try:
-                from ..core.camera.canon_sdk import CanonSDKCamera
-                cam = CanonSDKCamera()
-            except Exception:
-                cam = None
         elif backend == 'simulator':
             cam = SimulatorCamera()
         else:
@@ -145,7 +139,11 @@ class MainWindow(QtWidgets.QMainWindow):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
             return
-        self.reader = ExcelReader(Path(path), self.settings.excelMapping)
+        try:
+            self.reader = ExcelReader(Path(path), self.settings.excelMapping)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
+            return
         self.cmb_location.clear()
         self.cmb_location.addItems(self.reader.locations())
         self._update_buttons()
@@ -186,7 +184,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self._update_buttons()
             return
         l = self.learners[self.current]
-        self.label_current.setText(f"{l.vorname} {l.nachname}")
+        self.label_current.setText(
+            f"{l.vorname} {l.nachname} ({self.current + 1}/{len(self.learners)})"
+        )
         if self.current + 1 < len(self.learners):
             n = self.learners[self.current + 1]
             self.label_upcoming.setText(f"{n.vorname} {n.nachname}")
@@ -218,11 +218,10 @@ class MainWindow(QtWidgets.QMainWindow):
         location = self.cmb_location.currentText()
         if learner.is_new:
             out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
-            filename = f"{learner.vorname}_{learner.nachname}.jpg"
+            raw_path = unique_file_path(out_dir, f"{learner.vorname}_{learner.nachname}.jpg")
         else:
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
-            filename = f"{learner.schueler_id}.jpg"
-        raw_path = out_dir / filename
+            raw_path = unique_file_path(out_dir, f"{learner.schueler_id}.jpg")
         try:
             self.camera.capture(raw_path)
         except Exception as e:
@@ -245,7 +244,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._show_review(raw_path):
             if not learner.is_new:
                 date_str = datetime.now().strftime('%d.%m.%Y')
-                self.reader.mark_photographed(location, learner.row, True, date_str)
+                try:
+                    self.reader.mark_photographed(location, learner.row, True, date_str)
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
             self.current += 1
         else:
             raw_path.unlink(missing_ok=True)
@@ -255,13 +257,27 @@ class MainWindow(QtWidgets.QMainWindow):
     def skip_learner(self):
         if self.current >= len(self.learners):
             return
-        reason, ok = QtWidgets.QInputDialog.getText(
+        reasons = ['Abwesend', 'Verweigert', 'Technisches Problem', 'Keine Angabe', 'Anderer Grund...']
+        reason, ok = QtWidgets.QInputDialog.getItem(
             self,
             'Grund',
-            'Grund für das Überspringen eingeben:',
+            'Grund für das Überspringen wählen:',
+            reasons,
+            0,
+            False,
         )
         if not ok:
             return
+        if reason == 'Anderer Grund...':
+            reason, ok = QtWidgets.QInputDialog.getText(
+                self,
+                'Grund',
+                'Grund für das Überspringen eingeben:',
+            )
+            if not ok:
+                return
+        elif reason == 'Keine Angabe':
+            reason = ''
         learner = self.learners[self.current]
         missed = MissedWriter(self.settings.missedPath)
         entry = MissedEntry(
@@ -273,9 +289,15 @@ class MainWindow(QtWidgets.QMainWindow):
             datetime.now().isoformat(),
             reason,
         )
-        missed.append(entry)
+        try:
+            missed.append(entry)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
         if not learner.is_new:
-            self.reader.mark_photographed(self.cmb_location.currentText(), learner.row, False)
+            try:
+                self.reader.mark_photographed(self.cmb_location.currentText(), learner.row, False)
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
         self.current += 1
         self.show_next()
         self._update_buttons()

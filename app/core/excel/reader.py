@@ -16,7 +16,12 @@ class ExcelReader:
     def __init__(self, path: Path, mapping: dict):
         self.path = path
         self.mapping = mapping
-        self.wb = openpyxl.load_workbook(path)
+        if not path.exists():
+            raise IOError(f'Datei nicht gefunden: {path}')
+        try:
+            self.wb = openpyxl.load_workbook(path)
+        except Exception as e:
+            raise IOError(f'Konnte Excel-Datei nicht laden: {e}')
 
     def locations(self) -> List[str]:
         return self.wb.sheetnames
@@ -49,4 +54,7 @@ class ExcelReader:
             sheet[f"{col_phot}{row}"].value = 'Ja' if photographed else 'Nein'
         if col_date:
             sheet[f"{col_date}{row}"].value = date if photographed else None
-        self.wb.save(self.path)
+        try:
+            self.wb.save(self.path)
+        except Exception as e:
+            raise IOError(f'Konnte Excel-Datei nicht speichern: {e}')

@@ -29,13 +29,16 @@ class MissedWriter:
             self.wb.save(path)
 
     def append(self, entry: MissedEntry) -> None:
-        self.ws.append([
-            entry.standort,
-            entry.klasse,
-            entry.nachname,
-            entry.vorname,
-            entry.schueler_id,
-            entry.datum,
-            entry.grund,
-        ])
-        self.wb.save(self.path)
+        try:
+            self.ws.append([
+                entry.standort,
+                entry.klasse,
+                entry.nachname,
+                entry.vorname,
+                entry.schueler_id,
+                entry.datum,
+                entry.grund,
+            ])
+            self.wb.save(self.path)
+        except Exception as e:
+            raise IOError(f'Konnte Datei für verpasste Termine nicht speichern: {e}')
