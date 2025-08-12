@@ -257,6 +257,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def skip_learner(self):
         if self.current >= len(self.learners):
             return
+        if self._excel_running():
+            QtWidgets.QMessageBox.warning(
+                self,
+                'Excel geöffnet',
+                'Schliesse Excel um die App zu benutzen!'
+            )
+            return
         reasons = ['Krank', 'Verweigert', 'Anderer Grund...']
         reason, ok = QtWidgets.QInputDialog.getItem(
             self,
