@@ -16,7 +16,12 @@ class ExcelReader:
     def __init__(self, path: Path, mapping: dict):
         self.path = path
         self.mapping = mapping
-        self.wb = openpyxl.load_workbook(path)
+        if not path.exists():
+            raise IOError(f'Datei nicht gefunden: {path}')
+        try:
+            self.wb = openpyxl.load_workbook(path)
+        except Exception as e:
+            raise IOError(f'Konnte Excel-Datei nicht laden: {e}')
 
     def locations(self) -> List[str]:
         return self.wb.sheetnames
@@ -41,12 +46,25 @@ class ExcelReader:
         learners.sort(key=lambda l: (l.nachname, l.vorname))
         return learners
 
-    def mark_photographed(self, location: str, row: int, photographed: bool, date: str | None = None) -> None:
+    def mark_photographed(
+        self,
+        location: str,
+        row: int,
+        photographed: bool,
+        date: str | None = None,
+        reason: str | None = None,
+    ) -> None:
         sheet = self.wb[location]
         col_phot = self.mapping.get('fotografiert')
         col_date = self.mapping.get('aufnahmedatum')
+        col_reason = self.mapping.get('grund')
         if col_phot:
             sheet[f"{col_phot}{row}"].value = 'Ja' if photographed else 'Nein'
         if col_date:
             sheet[f"{col_date}{row}"].value = date if photographed else None
-        self.wb.save(self.path)
+        if col_reason:
+            sheet[f"{col_reason}{row}"].value = None if photographed else reason
+        try:
+            self.wb.save(self.path)
+        except Exception as e:
+            raise IOError(f'Konnte Excel-Datei nicht speichern: {e}')
