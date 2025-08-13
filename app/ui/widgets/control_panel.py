@@ -39,7 +39,7 @@ class ControlPanel(QtWidgets.QWidget):
             self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
             self.btn_finish = QtWidgets.QPushButton('Fertig')
             self.btn_settings = QtWidgets.QPushButton('')
-            self.btn_jump_to = QtWidgets.QToolButton('')
+            self.btn_jump_to = QtWidgets.QToolButton()
             self.btn_jump_to.setText('Person wählen')
             self.btn_jump_to.setPopupMode(QtWidgets.QToolButton.InstantPopup)
             for w in [
