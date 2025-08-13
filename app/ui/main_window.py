@@ -40,6 +40,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.camera = self._init_camera()
         self._reader = None
         self.busy = False
+        self._jump_return = None
         self._setup_ui()
         if hasattr(self.camera, "start_liveview"):
             self.camera.start_liveview()
@@ -91,6 +92,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_add_person = self.controls.btn_add_person
         self.btn_finish = self.controls.btn_finish
         self.btn_settings = self.controls.btn_settings
+        self.btn_jump_to = self.controls.btn_jump_to
         self.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
         self.cmb_class.setMaxVisibleItems(25)
@@ -140,6 +142,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_switch_camera.clicked.connect(self.switch_camera)
         self.btn_settings.clicked.connect(self.open_settings)
         self.btn_search_class.clicked.connect(self.search_class)
+        self.btn_jump_to.setEnabled(False)
 
         self._update_buttons()
 
@@ -193,10 +196,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_buttons()
 
     def search_class(self):
-        if not getattr(self.controller, 'current_classes', None):
+        classes = getattr(self.controller, "current_classes", [])
+        if not classes:
+            self._notify("Klassen", "Keine Klassen geladen", level="warning", show=True)
             return
         dlg = ClassSearchDialog(
-            self.controller.current_classes, self, logger=self.logger.getChild('ClassSearchDialog')
+            classes, self, logger=self.logger.getChild("ClassSearchDialog")
         )
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             selected = dlg.selected_class()
@@ -216,6 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if learner is None:
             self.label_current.setText('Klasse abgeschlossen')
             self.label_upcoming.setText('')
+            self._populate_jump_menu()
             self._update_buttons()
             return
         self.label_current.setText(
@@ -226,7 +232,26 @@ class MainWindow(QtWidgets.QMainWindow):
             self.label_upcoming.setText(f"{next_l.vorname} {next_l.nachname}")
         else:
             self.label_upcoming.setText('')
+        self._populate_jump_menu()
         self._update_buttons()
+
+    def _populate_jump_menu(self):
+        menu = self.btn_jump_to.menu()
+        if menu is None:
+            menu = QtWidgets.QMenu(self.btn_jump_to)
+            self.btn_jump_to.setMenu(menu)
+        menu.clear()
+        for idx, learner in enumerate(self.controller.learners[self.controller.current:], start=self.controller.current):
+            action = menu.addAction(f"{learner.vorname} {learner.nachname}")
+            action.triggered.connect(lambda _, i=idx: self.jump_to(i))
+        self.btn_jump_to.setEnabled(bool(menu.actions()) and not getattr(self, 'busy', False))
+
+    def jump_to(self, index: int):
+        if index <= self.controller.current or index >= len(self.controller.learners):
+            return
+        self._jump_return = self.controller.current
+        self.controller.current = index
+        self.show_next()
 
     def _excel_running(self) -> bool:
         for proc in psutil.process_iter(['name']):
@@ -314,11 +339,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     excel_task()
                     self._mark_finished(None)
             else:
-                self.controller.advance()
-                self.show_next()
-                self._set_busy(False)
+                self._after_learner_done()
         else:
             raw_path.unlink(missing_ok=True)
+            if getattr(self, '_jump_return', None) is not None:
+                self.controller.current = self._jump_return
+                self._jump_return = None
+                self.show_next()
             self._set_busy(False)
 
     def _mark_finished(self, watcher: QtCore.QFutureWatcher | None):
@@ -327,7 +354,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 watcher.result()
         except Exception as e:
             self._notify('Excel', str(e), level='warning')
-        self.controller.advance()
+        self._after_learner_done()
+
+    def _after_learner_done(self):
+        if getattr(self, '_jump_return', None) is not None:
+            del self.controller.learners[self.controller.current]
+            self.controller.current = self._jump_return
+            self._jump_return = None
+        else:
+            self.controller.advance()
         self.show_next()
         self._set_busy(False)
 
@@ -409,9 +444,7 @@ class MainWindow(QtWidgets.QMainWindow):
         errors = watcher.result()
         for err in errors:
             self._notify('Excel', err, level='warning')
-        self.controller.advance()
-        self.show_next()
-        self._set_busy(False)
+        self._after_learner_done()
 
     def finish_class(self):
         location = self.controls.cmb_location.currentText()
@@ -515,3 +548,4 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_add_person.setEnabled(ready and not busy)
         self.btn_finish.setEnabled(ready and not busy)
         self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])) and not busy)
+        self.btn_jump_to.setEnabled(more and not busy and bool(self.btn_jump_to.menu().actions()))
