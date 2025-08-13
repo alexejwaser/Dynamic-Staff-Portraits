@@ -1,10 +1,20 @@
 # app/core/util/paths.py
 from pathlib import Path
 from typing import Union
+import unicodedata
 
 
 def sanitize_name(name: str) -> str:
-    return ''.join(c for c in name if c.isalnum() or c in ('-', '_')).strip()
+    """Return *name* restricted to ASCII letters, numbers, ``-`` and ``_``.
+
+    Characters with accents or other diacritics are normalised to their ASCII
+    representation and anything that cannot be expressed in ASCII is removed.
+    This avoids crashes on filesystems or libraries that cannot handle
+    non‑ASCII paths (e.g. when class names contain umlauts like ``Bü25x``).
+    """
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    return ''.join(c for c in ascii_name if c.isalnum() or c in ('-', '_')).strip()
 
 def class_output_dir(base: Union[str, Path], location: str, class_name: str) -> Path:
     """Return the directory for a class, creating it if necessary."""

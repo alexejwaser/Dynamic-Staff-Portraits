@@ -193,10 +193,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_buttons()
 
     def search_class(self):
-        if not getattr(self.controller, 'current_classes', None):
+        classes = getattr(self.controller, "current_classes", [])
+        if not classes:
+            self._notify("Klassen", "Keine Klassen geladen", level="warning", show=True)
             return
         dlg = ClassSearchDialog(
-            self.controller.current_classes, self, logger=self.logger.getChild('ClassSearchDialog')
+            classes, self, logger=self.logger.getChild("ClassSearchDialog")
         )
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             selected = dlg.selected_class()
