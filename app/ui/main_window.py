@@ -18,6 +18,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self.camera, "start_liveview"):
             self.camera.start_liveview()
 
+    def _init_camera(self):
+        backend = self.settings.kamera.backend
+        cam = None
+        if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
+            cam = GPhoto2Camera()
+        elif backend == 'simulator':
+            cam = SimulatorCamera()
+        else:
+            try:
+                # In Webcam-Modus standardmaessig die zweite Kamera verwenden
+                cam = OpenCVCamera(1)
+                self.current_cam_id = 1
+            except Exception:
+                cam = None
+        if cam is None:
+            cam = SimulatorCamera()
+        return cam
+
     def _setup_ui(self):
         self.setWindowTitle('LegicCard-Creator')
         self.setFixedSize(1000, 700)
@@ -40,14 +58,28 @@ class MainWindow(QtWidgets.QMainWindow):
         layout.addWidget(self.controls)
 
         # right preview
-        fps = self.settings.kamera.get('liveviewFpsZiel', 20)
-        self.preview_pane = PreviewPane(self.camera, fps, self.settings.overlay.get('image'), self)
-        self.status_labels = StatusLabels(self)
-        right_layout = QtWidgets.QVBoxLayout()
-        right_layout.setSpacing(10)
-        right_layout.addWidget(self.status_labels)
-        right_layout.addWidget(self.preview_pane)
-        layout.addLayout(right_layout)
+        from .widgets.live_view_widget import LiveViewWidget
+        fps = self.settings.kamera.liveviewFpsZiel
+        self.preview = LiveViewWidget(self.camera, fps)
+        self.preview.set_overlay_image(self.settings.overlay.image)
+        preview_layout = QtWidgets.QVBoxLayout()
+        preview_layout.setSpacing(10)
+        name_layout = QtWidgets.QHBoxLayout()
+        self.label_current = QtWidgets.QLabel('')
+        self.label_current.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.label_current.setStyleSheet('font-size:16px;')
+        self.label_upcoming = QtWidgets.QLabel('')
+        self.label_upcoming.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.label_upcoming.setStyleSheet('font-size:12px; color: gray;')
+        name_layout.addWidget(self.label_current)
+        name_layout.addStretch()
+        name_layout.addWidget(self.label_upcoming)
+        preview_layout.addLayout(name_layout)
+        preview_layout.addWidget(self.preview)
+        self.btn_switch_camera = QtWidgets.QPushButton('Kamera wechseln')
+        self.btn_switch_camera.setFixedWidth(120)
+        preview_layout.addWidget(self.btn_switch_camera)
+        layout.addLayout(preview_layout)
 
         self.setStyleSheet(
             "* {font-family: 'Segoe UI';} QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
@@ -78,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not path:
             return
         try:
-            locations = self.controller.load_excel(Path(path))
+            self.reader = ExcelReader(Path(path), self.settings.excelMapping.model_dump())
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
             return
@@ -268,14 +300,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
-        before_backend = self.settings.kamera.get('backend')
-        before_overlay = self.settings.overlay.get('image')
+        before_backend = self.settings.kamera.backend
+        before_overlay = self.settings.overlay.image
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            if self.settings.kamera.get('backend') != before_backend:
-                self.camera = self.controller.restart_camera()
-                self.preview_pane.set_camera(self.camera)
-            if self.settings.overlay.get('image') != before_overlay:
-                self.preview_pane.set_overlay_image(self.settings.overlay.get('image'))
+            if self.settings.kamera.backend != before_backend:
+                self.camera.stop_liveview()
+                self.camera = self._init_camera()
+                if hasattr(self.camera, 'start_liveview'):
+                    self.camera.start_liveview()
+                self.preview.set_camera(self.camera)
+            if self.settings.overlay.image != before_overlay:
+                self.preview.set_overlay_image(self.settings.overlay.image)
         self._update_buttons()
 
     def _update_buttons(self):

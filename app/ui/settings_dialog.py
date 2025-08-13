@@ -1,7 +1,8 @@
 # app/ui/settings_dialog.py
 from PySide6 import QtWidgets
 from pathlib import Path
-from ..core.config.settings import Settings
+from pydantic import ValidationError
+from ..core.config.settings import Settings, ExcelMapping
 
 
 class SettingsDialog(QtWidgets.QDialog):
@@ -14,7 +15,7 @@ class SettingsDialog(QtWidgets.QDialog):
 
         self.cmb_camera = QtWidgets.QComboBox()
         self.cmb_camera.addItems(['Webcam', 'GPhoto2', 'Simulator'])
-        backend = self.settings.kamera.get('backend', 'opencv')
+        backend = self.settings.kamera.backend
         mapping = {'opencv': 0, 'gphoto2': 1, 'simulator': 2}
         self.cmb_camera.setCurrentIndex(mapping.get(backend, 0))
         form.addRow('Kamera', self.cmb_camera)
@@ -39,7 +40,7 @@ class SettingsDialog(QtWidgets.QDialog):
         form.addRow('Verpasste Termine', h_miss)
         self.btn_missed.clicked.connect(self.choose_missed)
 
-        self.overlay_path = self.settings.overlay.get('image', '')
+        self.overlay_path = str(self.settings.overlay.image) if self.settings.overlay.image else ''
         self.lbl_overlay = QtWidgets.QLabel(Path(self.overlay_path).name if self.overlay_path else 'Kein Overlay')
         self.btn_overlay = QtWidgets.QPushButton('Overlay wählen...')
         h_overlay = QtWidgets.QHBoxLayout()
@@ -49,13 +50,13 @@ class SettingsDialog(QtWidgets.QDialog):
         self.btn_overlay.clicked.connect(self.choose_overlay)
 
         emap = self.settings.excelMapping
-        self.ed_class = QtWidgets.QLineEdit(emap.get('klasse', 'A'))
-        self.ed_last = QtWidgets.QLineEdit(emap.get('nachname', 'B'))
-        self.ed_first = QtWidgets.QLineEdit(emap.get('vorname', 'C'))
-        self.ed_id = QtWidgets.QLineEdit(emap.get('schuelerId', 'D'))
-        self.ed_photo = QtWidgets.QLineEdit(emap.get('fotografiert', 'E'))
-        self.ed_date = QtWidgets.QLineEdit(emap.get('aufnahmedatum', 'F'))
-        self.ed_reason = QtWidgets.QLineEdit(emap.get('grund', 'G'))
+        self.ed_class = QtWidgets.QLineEdit(emap.klasse)
+        self.ed_last = QtWidgets.QLineEdit(emap.nachname)
+        self.ed_first = QtWidgets.QLineEdit(emap.vorname)
+        self.ed_id = QtWidgets.QLineEdit(emap.schuelerId)
+        self.ed_photo = QtWidgets.QLineEdit(emap.fotografiert)
+        self.ed_date = QtWidgets.QLineEdit(emap.aufnahmedatum)
+        self.ed_reason = QtWidgets.QLineEdit(emap.grund)
         form.addRow('Spalte Klasse', self.ed_class)
         form.addRow('Spalte Nachname', self.ed_last)
         form.addRow('Spalte Vorname', self.ed_first)
@@ -94,18 +95,22 @@ class SettingsDialog(QtWidgets.QDialog):
     def accept(self):
         backend_idx = self.cmb_camera.currentIndex()
         backend = ['opencv', 'gphoto2', 'simulator'][backend_idx]
-        self.settings.kamera['backend'] = backend
-        self.settings.excelMapping = {
-            'klasse': self.ed_class.text() or 'A',
-            'nachname': self.ed_last.text() or 'B',
-            'vorname': self.ed_first.text() or 'C',
-            'schuelerId': self.ed_id.text() or 'D',
-            'fotografiert': self.ed_photo.text() or 'E',
-            'aufnahmedatum': self.ed_date.text() or 'F',
-            'grund': self.ed_reason.text() or 'G',
-        }
-        self.settings.overlay['image'] = self.overlay_path
+        self.settings.kamera.backend = backend
+        self.settings.excelMapping = ExcelMapping(
+            klasse=self.ed_class.text() or 'A',
+            nachname=self.ed_last.text() or 'B',
+            vorname=self.ed_first.text() or 'C',
+            schuelerId=self.ed_id.text() or 'D',
+            fotografiert=self.ed_photo.text() or 'E',
+            aufnahmedatum=self.ed_date.text() or 'F',
+            grund=self.ed_reason.text() or 'G',
+        )
+        self.settings.overlay.image = Path(self.overlay_path) if self.overlay_path else None
         self.settings.ausgabeBasisPfad = Path(self.output_dir)
         self.settings.missedPath = Path(self.missed_path)
-        self.settings.save()
+        try:
+            self.settings.save()
+        except ValidationError as e:
+            QtWidgets.QMessageBox.critical(self, 'Einstellungen', str(e))
+            return
         super().accept()
