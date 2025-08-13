@@ -26,7 +26,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.camera.start_liveview()
 
     def _init_camera(self):
-        backend = self.settings.kamera.get('backend', 'opencv')
+        backend = self.settings.kamera.backend
         cam = None
         if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
             cam = GPhoto2Camera()
@@ -89,9 +89,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # right preview
         from .widgets.live_view_widget import LiveViewWidget
-        fps = self.settings.kamera.get('liveviewFpsZiel', 20)
+        fps = self.settings.kamera.liveviewFpsZiel
         self.preview = LiveViewWidget(self.camera, fps)
-        self.preview.set_overlay_image(self.settings.overlay.get('image'))
+        self.preview.set_overlay_image(self.settings.overlay.image)
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
         name_layout = QtWidgets.QHBoxLayout()
@@ -140,7 +140,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not path:
             return
         try:
-            self.reader = ExcelReader(Path(path), self.settings.excelMapping)
+            self.reader = ExcelReader(Path(path), self.settings.excelMapping.model_dump())
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
             return
@@ -403,17 +403,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
-        before_backend = self.settings.kamera.get('backend')
-        before_overlay = self.settings.overlay.get('image')
+        before_backend = self.settings.kamera.backend
+        before_overlay = self.settings.overlay.image
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            if self.settings.kamera.get('backend') != before_backend:
+            if self.settings.kamera.backend != before_backend:
                 self.camera.stop_liveview()
                 self.camera = self._init_camera()
                 if hasattr(self.camera, 'start_liveview'):
                     self.camera.start_liveview()
                 self.preview.set_camera(self.camera)
-            if self.settings.overlay.get('image') != before_overlay:
-                self.preview.set_overlay_image(self.settings.overlay.get('image'))
+            if self.settings.overlay.image != before_overlay:
+                self.preview.set_overlay_image(self.settings.overlay.image)
         self._update_buttons()
 
     def _update_buttons(self):
