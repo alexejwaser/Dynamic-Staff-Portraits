@@ -9,12 +9,15 @@ def sanitize_name(name: str) -> str:
 
     Characters with accents or other diacritics are normalised to their ASCII
     representation and anything that cannot be expressed in ASCII is removed.
-    This avoids crashes on filesystems or libraries that cannot handle
-    non‑ASCII paths (e.g. when class names contain umlauts like ``Bü25x``).
+    The German sharp s ("ß") is explicitly converted to ``ss`` to retain a
+    readable representation. This avoids crashes on filesystems or libraries
+    that cannot handle non‑ASCII paths (e.g. when class names contain umlauts
+    like ``Bü25x``).
     """
+    name = name.replace("ß", "ss")
     normalized = unicodedata.normalize("NFKD", name)
     ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
-    return ''.join(c for c in ascii_name if c.isalnum() or c in ('-', '_')).strip()
+    return "".join(c for c in ascii_name if c.isalnum() or c in ("-", "_")).strip()
 
 def class_output_dir(base: Union[str, Path], location: str, class_name: str) -> Path:
     """Return the directory for a class, creating it if necessary."""

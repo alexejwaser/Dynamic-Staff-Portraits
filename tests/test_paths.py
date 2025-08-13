@@ -26,4 +26,4 @@ def test_unique_file_path(tmp_path):
 
 def test_sanitize_name_umlauts():
     assert sanitize_name('Bü25x') == 'Bu25x'
-    assert sanitize_name('ÄÖ Üßé') == 'AOUe'
+    assert sanitize_name('ÄÖ Üßé') == 'AOUsse'
