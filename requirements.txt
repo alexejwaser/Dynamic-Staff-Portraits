@@ -3,5 +3,6 @@ openpyxl
 Pillow
 opencv-python-headless
 pytest
+pytest-qt
 psutil
 pydantic
