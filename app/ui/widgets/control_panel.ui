@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ControlPanel</class>
+ <widget class="QWidget" name="ControlPanel">
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QPushButton" name="btn_excel">
+     <property name="text">
+      <string>Excel verbinden...</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QComboBox" name="cmb_location"/>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="classLayout">
+     <item>
+      <widget class="QComboBox" name="cmb_class"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="btn_search_class">
+       <property name="toolTip">
+        <string>Klasse suchen</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_capture">
+     <property name="text">
+      <string>Foto aufnehmen
+[Leertaste]</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_skip">
+     <property name="text">
+      <string>Überspringen
+[S]</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_add_person">
+     <property name="text">
+      <string>Person hinzufügen
+[A]</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_finish">
+     <property name="text">
+      <string>Fertig
+[F]</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_settings">
+     <property name="text">
+      <string></string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+</ui>
