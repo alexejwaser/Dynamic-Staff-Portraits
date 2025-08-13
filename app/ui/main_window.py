@@ -1,20 +1,15 @@
 # app/ui/main_window.py
 from PySide6 import QtWidgets, QtGui, QtCore, QtConcurrent
 from pathlib import Path
-from datetime import datetime
-import psutil
 
 from ..core.config.settings import Settings
-from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
+from ..core.controller import MainController
 from .settings_dialog import SettingsDialog
 from .class_search_dialog import ClassSearchDialog
-from ..core.imaging.processor import process_image
-from ..core.util.paths import class_output_dir, new_learner_dir, unique_file_path
-from ..core.excel.reader import ExcelReader, Learner
-from ..core.excel.missed_writer import MissedWriter, MissedEntry
+from .widgets import ControlPanel, PreviewPane, StatusLabels
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, controller: MainController | None = None):
         super().__init__()
         self.settings = settings
         self.camera = self._init_camera()
@@ -23,11 +18,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.current = 0
         self.busy = False
         self._setup_ui()
-        if hasattr(self.camera, 'start_liveview'):
+        if hasattr(self.camera, "start_liveview"):
             self.camera.start_liveview()
 
     def _init_camera(self):
-        backend = self.settings.kamera.get('backend', 'opencv')
+        backend = self.settings.kamera.backend
         cam = None
         if backend == 'gphoto2' and QtCore.QStandardPaths.findExecutable('gphoto2'):
             cam = GPhoto2Camera()
@@ -53,46 +48,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(central)
 
         # left controls
-        control = QtWidgets.QVBoxLayout()
-        control.setSpacing(10)
-        self.btn_excel = QtWidgets.QPushButton('Excel verbinden...')
-        self.cmb_location = QtWidgets.QComboBox()
-        self.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.cmb_class = QtWidgets.QComboBox()
-        self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.cmb_class.setMaxVisibleItems(25)
-        self.btn_search_class = QtWidgets.QToolButton()
+        self.controls = ControlPanel(self)
+        self.controls.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.controls.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.controls.cmb_class.setMaxVisibleItems(25)
         search_icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView)
-        self.btn_search_class.setIcon(search_icon)
-        self.btn_search_class.setToolTip('Klasse suchen')
-        self.btn_capture = QtWidgets.QPushButton('Foto aufnehmen\n[Leertaste]')
-
-        self.btn_skip = QtWidgets.QPushButton('Überspringen\n[S]')
-
-        self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen\n[A]')
-
-        self.btn_finish = QtWidgets.QPushButton('Fertig\n[F]')
-        self.btn_settings = QtWidgets.QPushButton('')
+        self.controls.btn_search_class.setIcon(search_icon)
+        self.controls.btn_search_class.setToolTip('Klasse suchen')
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
-        self.btn_settings.setIcon(icon)
-        self.btn_settings.setToolTip('Einstellungen')
-        for w in [self.btn_excel, self.cmb_location]:
-            control.addWidget(w)
-        class_layout = QtWidgets.QHBoxLayout()
-        class_layout.addWidget(self.cmb_class)
-        class_layout.addWidget(self.btn_search_class)
-        control.addLayout(class_layout)
-        for w in [self.btn_capture, self.btn_skip, self.btn_add_person,
-                  self.btn_finish, self.btn_settings]:
-            control.addWidget(w)
-        control.addStretch()
-        layout.addLayout(control)
+        self.controls.btn_settings.setIcon(icon)
+        self.controls.btn_settings.setToolTip('Einstellungen')
+        layout.addWidget(self.controls)
 
         # right preview
         from .widgets.live_view_widget import LiveViewWidget
-        fps = self.settings.kamera.get('liveviewFpsZiel', 20)
+        fps = self.settings.kamera.liveviewFpsZiel
         self.preview = LiveViewWidget(self.camera, fps)
-        self.preview.set_overlay_image(self.settings.overlay.get('image'))
+        self.preview.set_overlay_image(self.settings.overlay.image)
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
         name_layout = QtWidgets.QHBoxLayout()
@@ -116,16 +88,16 @@ class MainWindow(QtWidgets.QMainWindow):
             "* {font-family: 'Segoe UI';} QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
         )
 
-        self.btn_excel.clicked.connect(self.load_excel)
-        self.cmb_location.currentTextChanged.connect(self.update_classes)
-        self.cmb_class.currentTextChanged.connect(self.load_learners)
-        self.btn_capture.clicked.connect(self.capture_photo)
-        self.btn_skip.clicked.connect(self.skip_learner)
-        self.btn_add_person.clicked.connect(self.add_person)
-        self.btn_finish.clicked.connect(self.finish_class)
-        self.btn_switch_camera.clicked.connect(self.switch_camera)
-        self.btn_settings.clicked.connect(self.open_settings)
-        self.btn_search_class.clicked.connect(self.search_class)
+        self.controls.btn_excel.clicked.connect(self.load_excel)
+        self.controls.cmb_location.currentTextChanged.connect(self.update_classes)
+        self.controls.cmb_class.currentTextChanged.connect(self.load_learners)
+        self.controls.btn_capture.clicked.connect(self.capture_photo)
+        self.controls.btn_skip.clicked.connect(self.skip_learner)
+        self.controls.btn_add_person.clicked.connect(self.add_person)
+        self.controls.btn_finish.clicked.connect(self.finish_class)
+        self.preview_pane.btn_switch_camera.clicked.connect(self.switch_camera)
+        self.controls.btn_settings.clicked.connect(self.open_settings)
+        self.controls.btn_search_class.clicked.connect(self.search_class)
 
         self._update_buttons()
 
@@ -141,58 +113,52 @@ class MainWindow(QtWidgets.QMainWindow):
         if not path:
             return
         try:
-            self.reader = ExcelReader(Path(path), self.settings.excelMapping)
+            self.reader = ExcelReader(Path(path), self.settings.excelMapping.model_dump())
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
             return
-        self.cmb_location.clear()
-        self.cmb_location.addItems(self.reader.locations())
+        self.controls.cmb_location.clear()
+        self.controls.cmb_location.addItems(locations)
         self._update_buttons()
 
     def update_classes(self, location: str):
-        if not self.reader or not location:
-            return
-        self.cmb_class.clear()
-        classes = self.reader.classes_for_location(location)
-        self.cmb_class.addItems(classes)
-        self.current_classes = classes
+        classes = self.controller.classes_for_location(location)
+        self.controls.cmb_class.clear()
+        self.controls.cmb_class.addItems(classes)
         self._update_buttons()
 
     def search_class(self):
-        if not getattr(self, 'current_classes', None):
+        if not getattr(self.controller, 'current_classes', None):
             return
-        dlg = ClassSearchDialog(self.current_classes, self)
+        dlg = ClassSearchDialog(self.controller.current_classes, self)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             selected = dlg.selected_class()
             if selected:
-                idx = self.cmb_class.findText(selected, QtCore.Qt.MatchExactly)
+                idx = self.controls.cmb_class.findText(selected, QtCore.Qt.MatchExactly)
                 if idx >= 0:
-                    self.cmb_class.setCurrentIndex(idx)
+                    self.controls.cmb_class.setCurrentIndex(idx)
 
     def load_learners(self, class_name: str):
-        location = self.cmb_location.currentText()
-        if not self.reader or not class_name:
-            return
-        self.learners = self.reader.learners(location, class_name)
-        self.current = 0
+        location = self.controls.cmb_location.currentText()
+        self.controller.learners_for_class(location, class_name)
         self.show_next()
         self._update_buttons()
 
     def show_next(self):
-        if self.current >= len(self.learners):
-            self.label_current.setText('Klasse abgeschlossen')
-            self.label_upcoming.setText('')
+        learner = self.controller.current_learner()
+        if learner is None:
+            self.status_labels.set_current('Klasse abgeschlossen')
+            self.status_labels.set_upcoming('')
             self._update_buttons()
             return
-        l = self.learners[self.current]
-        self.label_current.setText(
-            f"{l.vorname} {l.nachname} ({self.current + 1}/{len(self.learners)})"
+        self.status_labels.set_current(
+            f"{learner.vorname} {learner.nachname} ({self.controller.current + 1}/{len(self.controller.learners)})"
         )
-        if self.current + 1 < len(self.learners):
-            n = self.learners[self.current + 1]
-            self.label_upcoming.setText(f"{n.vorname} {n.nachname}")
+        next_l = self.controller.next_learner()
+        if next_l:
+            self.status_labels.set_upcoming(f"{next_l.vorname} {next_l.nachname}")
         else:
-            self.label_upcoming.setText('')
+            self.status_labels.set_upcoming('')
         self._update_buttons()
 
     def _excel_running(self) -> bool:
@@ -212,9 +178,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_buttons()
 
     def capture_photo(self):
-        if self.current >= len(self.learners):
+        if self.controller.current >= len(self.controller.learners):
             return
-        if self._excel_running():
+        if self.controller.excel_running():
             QtWidgets.QMessageBox.warning(
                 self,
                 'Excel geöffnet',
@@ -287,9 +253,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_busy(False)
 
     def skip_learner(self):
-        if self.current >= len(self.learners):
+        if self.controller.current >= len(self.controller.learners):
             return
-        if self._excel_running():
+        if self.controller.excel_running():
             QtWidgets.QMessageBox.warning(
                 self,
                 'Excel geöffnet',
@@ -361,17 +327,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_busy(False)
 
     def finish_class(self):
-        location = self.cmb_location.currentText()
-        klasse = self.cmb_class.currentText()
-        out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, klasse)
-        files = sorted(out_dir.glob('*.jpg'))
-        if files:
-            from ..core.archiver.chunk_zip import chunk_by_count
-            zip_base = out_dir / f"{klasse}.zip"
-            max_count = self.settings.zip.get('maxAnzahl') or len(files)
-            zip_paths = chunk_by_count(files, zip_base, max_count)
-        else:
-            zip_paths = []
+        location = self.controls.cmb_location.currentText()
+        klasse = self.controls.cmb_class.currentText()
+        zip_paths, out_dir = self.controller.finish(location, klasse)
 
         msg = QtWidgets.QMessageBox(self)
         msg.setWindowTitle('Klasse abgeschlossen')
@@ -403,8 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
             vor = first.text().strip()
             nach = last.text().strip()
             if vor and nach:
-                learner = Learner(self.cmb_class.currentText(), nach, vor, '', is_new=True)
-                self.learners.insert(self.current, learner)
+                self.controller.add_learner(self.controls.cmb_class.currentText(), vor, nach)
                 self.show_next()
                 self._update_buttons()
 
@@ -414,7 +371,7 @@ class MainWindow(QtWidgets.QMainWindow):
         vbox = QtWidgets.QVBoxLayout(dlg)
         lbl = QtWidgets.QLabel()
         pix = QtGui.QPixmap(str(path))
-        lbl.setPixmap(pix.scaled(self.preview.size(), QtCore.Qt.KeepAspectRatio))
+        lbl.setPixmap(pix.scaled(self.preview_pane.preview.size(), QtCore.Qt.KeepAspectRatio))
         vbox.addWidget(lbl)
         h = QtWidgets.QHBoxLayout()
         retry = QtWidgets.QPushButton('Erneut fotografieren\n[Esc]')
@@ -431,37 +388,30 @@ class MainWindow(QtWidgets.QMainWindow):
         return result['ok']
 
     def switch_camera(self):
-        if hasattr(self.camera, 'switch_camera'):
-            self.current_cam_id = getattr(self, 'current_cam_id', 0) + 1
+        if hasattr(self.controller.camera, 'switch_camera'):
             try:
-                self.camera.switch_camera(self.current_cam_id)
-                self.preview.set_camera(self.camera)
+                self.controller.switch_camera()
+                self.preview_pane.set_camera(self.controller.camera)
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, 'Kamera', str(e))
-                self.current_cam_id = 0
-                try:
-                    self.camera.switch_camera(self.current_cam_id)
-                    self.preview.set_camera(self.camera)
-                except Exception:
-                    pass
 
     def closeEvent(self, event):
-        self.camera.stop_liveview()
+        self.controller.camera.stop_liveview()
         super().closeEvent(event)
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
-        before_backend = self.settings.kamera.get('backend')
-        before_overlay = self.settings.overlay.get('image')
+        before_backend = self.settings.kamera.backend
+        before_overlay = self.settings.overlay.image
         if dlg.exec() == QtWidgets.QDialog.Accepted:
-            if self.settings.kamera.get('backend') != before_backend:
+            if self.settings.kamera.backend != before_backend:
                 self.camera.stop_liveview()
                 self.camera = self._init_camera()
                 if hasattr(self.camera, 'start_liveview'):
                     self.camera.start_liveview()
                 self.preview.set_camera(self.camera)
-            if self.settings.overlay.get('image') != before_overlay:
-                self.preview.set_overlay_image(self.settings.overlay.get('image'))
+            if self.settings.overlay.image != before_overlay:
+                self.preview.set_overlay_image(self.settings.overlay.image)
         self._update_buttons()
 
     def _update_buttons(self):
