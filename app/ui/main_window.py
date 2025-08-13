@@ -1,25 +1,58 @@
-# app/ui/main_window.py
+"""Main application window."""
+
+from __future__ import annotations
+
 from PySide6 import QtWidgets, QtGui, QtCore, QtConcurrent
 from pathlib import Path
+from datetime import datetime
+import logging
+import psutil
 
 from ..core.config.settings import Settings
 from ..core.controller import MainController
+from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
+from ..core.excel.reader import ExcelReader, Learner
+from ..core.excel.missed_writer import MissedWriter, MissedEntry
+from ..core.imaging.processor import process_image
+from ..core.util.paths import (
+    class_output_dir,
+    new_learner_dir,
+    unique_file_path,
+)
 from .settings_dialog import SettingsDialog
 from .class_search_dialog import ClassSearchDialog
-from .widgets import ControlPanel, PreviewPane, StatusLabels
+from .widgets import ControlPanel
+
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, settings: Settings, controller: MainController | None = None):
+    """Main GUI window for the application."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        controller: MainController | None = None,
+        logger: logging.Logger | None = None,
+    ):
         super().__init__()
+        self.logger = logger or logging.getLogger(type(self).__name__)
         self.settings = settings
+        self.controller = controller or MainController(settings)
         self.camera = self._init_camera()
-        self.reader = None
-        self.learners = []
-        self.current = 0
+        self._reader = None
         self.busy = False
         self._setup_ui()
         if hasattr(self.camera, "start_liveview"):
             self.camera.start_liveview()
+
+    @property
+    def reader(self):
+        return self._reader
+
+    @reader.setter
+    def reader(self, value):
+        self._reader = value
+        if self.controller is not None:
+            self.controller.reader = value
 
     def _init_camera(self):
         backend = self.settings.kamera.backend
@@ -49,15 +82,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # left controls
         self.controls = ControlPanel(self)
-        self.controls.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.controls.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
-        self.controls.cmb_class.setMaxVisibleItems(25)
+        self.cmb_location = self.controls.cmb_location
+        self.cmb_class = self.controls.cmb_class
+        self.btn_search_class = self.controls.btn_search_class
+        self.btn_excel = self.controls.btn_excel
+        self.btn_capture = self.controls.btn_capture
+        self.btn_skip = self.controls.btn_skip
+        self.btn_add_person = self.controls.btn_add_person
+        self.btn_finish = self.controls.btn_finish
+        self.btn_settings = self.controls.btn_settings
+        self.cmb_location.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.cmb_class.setSizeAdjustPolicy(QtWidgets.QComboBox.AdjustToContents)
+        self.cmb_class.setMaxVisibleItems(25)
         search_icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView)
-        self.controls.btn_search_class.setIcon(search_icon)
-        self.controls.btn_search_class.setToolTip('Klasse suchen')
+        self.btn_search_class.setIcon(search_icon)
+        self.btn_search_class.setToolTip('Klasse suchen')
         icon = self.style().standardIcon(QtWidgets.QStyle.SP_FileDialogDetailedView)
-        self.controls.btn_settings.setIcon(icon)
-        self.controls.btn_settings.setToolTip('Einstellungen')
+        self.btn_settings.setIcon(icon)
+        self.btn_settings.setToolTip('Einstellungen')
         layout.addWidget(self.controls)
 
         # right preview
@@ -88,16 +130,16 @@ class MainWindow(QtWidgets.QMainWindow):
             "* {font-family: 'Segoe UI';} QPushButton {padding:6px 12px;}\nQLabel{font-size:14px;}"
         )
 
-        self.controls.btn_excel.clicked.connect(self.load_excel)
-        self.controls.cmb_location.currentTextChanged.connect(self.update_classes)
-        self.controls.cmb_class.currentTextChanged.connect(self.load_learners)
-        self.controls.btn_capture.clicked.connect(self.capture_photo)
-        self.controls.btn_skip.clicked.connect(self.skip_learner)
-        self.controls.btn_add_person.clicked.connect(self.add_person)
-        self.controls.btn_finish.clicked.connect(self.finish_class)
-        self.preview_pane.btn_switch_camera.clicked.connect(self.switch_camera)
-        self.controls.btn_settings.clicked.connect(self.open_settings)
-        self.controls.btn_search_class.clicked.connect(self.search_class)
+        self.btn_excel.clicked.connect(self.load_excel)
+        self.cmb_location.currentTextChanged.connect(self.update_classes)
+        self.cmb_class.currentTextChanged.connect(self.load_learners)
+        self.btn_capture.clicked.connect(self.capture_photo)
+        self.btn_skip.clicked.connect(self.skip_learner)
+        self.btn_add_person.clicked.connect(self.add_person)
+        self.btn_finish.clicked.connect(self.finish_class)
+        self.btn_switch_camera.clicked.connect(self.switch_camera)
+        self.btn_settings.clicked.connect(self.open_settings)
+        self.btn_search_class.clicked.connect(self.search_class)
 
         self._update_buttons()
 
@@ -108,14 +150,37 @@ class MainWindow(QtWidgets.QMainWindow):
         QtGui.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
         QtGui.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
 
+    # ------------------------------------------------------------------
+    def _notify(
+        self,
+        title: str,
+        message: str,
+        level: str = "info",
+        show: bool = True,
+    ) -> None:
+        """Log *message* with *level* and optionally show a QMessageBox."""
+
+        log_fn = getattr(self.logger, level, self.logger.info)
+        log_fn(f"{title}: {message}")
+        if not show:
+            return
+        mapping = {
+            "error": QtWidgets.QMessageBox.critical,
+            "warning": QtWidgets.QMessageBox.warning,
+            "info": QtWidgets.QMessageBox.information,
+        }
+        msg_fn = mapping.get(level, QtWidgets.QMessageBox.information)
+        msg_fn(self, title, message)
+
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
             return
         try:
             self.reader = ExcelReader(Path(path), self.settings.excelMapping.model_dump())
+            locations = self.reader.locations()
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
+            self._notify('Excel', str(e), level='error')
             return
         self.controls.cmb_location.clear()
         self.controls.cmb_location.addItems(locations)
@@ -130,7 +195,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def search_class(self):
         if not getattr(self.controller, 'current_classes', None):
             return
-        dlg = ClassSearchDialog(self.controller.current_classes, self)
+        dlg = ClassSearchDialog(
+            self.controller.current_classes, self, logger=self.logger.getChild('ClassSearchDialog')
+        )
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             selected = dlg.selected_class()
             if selected:
@@ -147,18 +214,18 @@ class MainWindow(QtWidgets.QMainWindow):
     def show_next(self):
         learner = self.controller.current_learner()
         if learner is None:
-            self.status_labels.set_current('Klasse abgeschlossen')
-            self.status_labels.set_upcoming('')
+            self.label_current.setText('Klasse abgeschlossen')
+            self.label_upcoming.setText('')
             self._update_buttons()
             return
-        self.status_labels.set_current(
+        self.label_current.setText(
             f"{learner.vorname} {learner.nachname} ({self.controller.current + 1}/{len(self.controller.learners)})"
         )
         next_l = self.controller.next_learner()
         if next_l:
-            self.status_labels.set_upcoming(f"{next_l.vorname} {next_l.nachname}")
+            self.label_upcoming.setText(f"{next_l.vorname} {next_l.nachname}")
         else:
-            self.status_labels.set_upcoming('')
+            self.label_upcoming.setText('')
         self._update_buttons()
 
     def _excel_running(self) -> bool:
@@ -181,14 +248,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.controller.current >= len(self.controller.learners):
             return
         if self.controller.excel_running():
-            QtWidgets.QMessageBox.warning(
-                self,
+            self._notify(
                 'Excel geöffnet',
-                'Schliesse Excel um die App zu benutzen!'
+                'Schliesse Excel um die App zu benutzen!',
+                level='warning',
             )
             return
         self._set_busy(True)
-        learner = self.learners[self.current]
+        learner = self.controller.learners[self.controller.current]
         location = self.cmb_location.currentText()
         if learner.is_new:
             out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
@@ -199,27 +266,34 @@ class MainWindow(QtWidgets.QMainWindow):
 
         def task():
             self.camera.capture(raw_path)
-            aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
+            aspect = getattr(self.settings.bild, 'seitenverhaeltnis', (3, 4))
             process_image(
                 raw_path,
                 raw_path,
-                self.settings.bild['breite'],
-                self.settings.bild['hoehe'],
-                self.settings.bild['qualitaet'],
+                self.settings.bild.breite,
+                self.settings.bild.hoehe,
+                self.settings.bild.qualitaet,
                 aspect,
             )
 
-        future = QtConcurrent.run(task)
-        watcher = QtCore.QFutureWatcher()
-        watcher.setFuture(future)
-        watcher.finished.connect(lambda: self._capture_finished(watcher, learner, location, raw_path))
-        self._capture_watcher = watcher
+        if hasattr(QtConcurrent, 'run'):
+            future = QtConcurrent.run(task)
+            watcher = QtCore.QFutureWatcher()
+            watcher.setFuture(future)
+            watcher.finished.connect(
+                lambda: self._capture_finished(watcher, learner, location, raw_path)
+            )
+            self._capture_watcher = watcher
+        else:
+            task()
+            self._capture_finished(None, learner, location, raw_path)
 
-    def _capture_finished(self, watcher: QtCore.QFutureWatcher, learner: Learner, location: str, raw_path: Path):
+    def _capture_finished(self, watcher: QtCore.QFutureWatcher | None, learner: Learner, location: str, raw_path: Path):
         try:
-            watcher.result()
+            if watcher is not None:
+                watcher.result()
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
+            self._notify('Aufnahme fehlgeschlagen', str(e), level='error')
             raw_path.unlink(missing_ok=True)
             self._set_busy(False)
             return
@@ -230,25 +304,30 @@ class MainWindow(QtWidgets.QMainWindow):
                 def excel_task():
                     self.reader.mark_photographed(location, learner.row, True, date_str)
 
-                future = QtConcurrent.run(excel_task)
-                watcher2 = QtCore.QFutureWatcher()
-                watcher2.setFuture(future)
-                watcher2.finished.connect(lambda: self._mark_finished(watcher2))
-                self._excel_watcher = watcher2
+                if hasattr(QtConcurrent, 'run'):
+                    future = QtConcurrent.run(excel_task)
+                    watcher2 = QtCore.QFutureWatcher()
+                    watcher2.setFuture(future)
+                    watcher2.finished.connect(lambda: self._mark_finished(watcher2))
+                    self._excel_watcher = watcher2
+                else:
+                    excel_task()
+                    self._mark_finished(None)
             else:
-                self.current += 1
+                self.controller.advance()
                 self.show_next()
                 self._set_busy(False)
         else:
             raw_path.unlink(missing_ok=True)
             self._set_busy(False)
 
-    def _mark_finished(self, watcher: QtCore.QFutureWatcher):
+    def _mark_finished(self, watcher: QtCore.QFutureWatcher | None):
         try:
-            watcher.result()
+            if watcher is not None:
+                watcher.result()
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
-        self.current += 1
+            self._notify('Excel', str(e), level='warning')
+        self.controller.advance()
         self.show_next()
         self._set_busy(False)
 
@@ -256,10 +335,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.controller.current >= len(self.controller.learners):
             return
         if self.controller.excel_running():
-            QtWidgets.QMessageBox.warning(
-                self,
+            self._notify(
                 'Excel geöffnet',
-                'Schliesse Excel um die App zu benutzen!'
+                'Schliesse Excel um die App zu benutzen!',
+                level='warning',
             )
             return
         reasons = ['Krank', 'Verweigert', 'Anderer Grund...']
@@ -281,7 +360,7 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             if not ok:
                 return
-        learner = self.learners[self.current]
+        learner = self.controller.learners[self.controller.current]
         missed = MissedWriter(self.settings.missedPath)
         entry = MissedEntry(
             self.cmb_location.currentText(),
@@ -312,17 +391,25 @@ class MainWindow(QtWidgets.QMainWindow):
                     errors.append(str(e))
             return errors
 
-        future = QtConcurrent.run(task)
-        watcher = QtCore.QFutureWatcher()
-        watcher.setFuture(future)
-        watcher.finished.connect(lambda: self._skip_finished(watcher))
-        self._skip_watcher = watcher
+        if hasattr(QtConcurrent, 'run'):
+            future = QtConcurrent.run(task)
+            watcher = QtCore.QFutureWatcher()
+            watcher.setFuture(future)
+            watcher.finished.connect(lambda: self._skip_finished(watcher))
+            self._skip_watcher = watcher
+        else:
+            errors = task()
+            for err in errors:
+                self._notify('Excel', err, level='warning')
+            self.controller.advance()
+            self.show_next()
+            self._set_busy(False)
 
     def _skip_finished(self, watcher: QtCore.QFutureWatcher):
         errors = watcher.result()
         for err in errors:
-            QtWidgets.QMessageBox.warning(self, 'Excel', err)
-        self.current += 1
+            self._notify('Excel', err, level='warning')
+        self.controller.advance()
         self.show_next()
         self._set_busy(False)
 
@@ -330,15 +417,18 @@ class MainWindow(QtWidgets.QMainWindow):
         location = self.controls.cmb_location.currentText()
         klasse = self.controls.cmb_class.currentText()
         zip_paths, out_dir = self.controller.finish(location, klasse)
+        if zip_paths:
+            text = f'ZIP-Archiv {zip_paths[0].name} wurde erstellt.'
+        else:
+            text = 'Klasse abgeschlossen'
+        self.logger.info(text)
 
         msg = QtWidgets.QMessageBox(self)
         msg.setWindowTitle('Klasse abgeschlossen')
+        msg.setText(text)
+        open_btn = None
         if zip_paths:
-            msg.setText(f'ZIP-Archiv {zip_paths[0].name} wurde erstellt.')
             open_btn = msg.addButton('Ordner öffnen', QtWidgets.QMessageBox.ActionRole)
-        else:
-            msg.setText('Klasse abgeschlossen')
-            open_btn = None
         msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
@@ -371,7 +461,7 @@ class MainWindow(QtWidgets.QMainWindow):
         vbox = QtWidgets.QVBoxLayout(dlg)
         lbl = QtWidgets.QLabel()
         pix = QtGui.QPixmap(str(path))
-        lbl.setPixmap(pix.scaled(self.preview_pane.preview.size(), QtCore.Qt.KeepAspectRatio))
+        lbl.setPixmap(pix.scaled(self.preview.size(), QtCore.Qt.KeepAspectRatio))
         vbox.addWidget(lbl)
         h = QtWidgets.QHBoxLayout()
         retry = QtWidgets.QPushButton('Erneut fotografieren\n[Esc]')
@@ -391,16 +481,18 @@ class MainWindow(QtWidgets.QMainWindow):
         if hasattr(self.controller.camera, 'switch_camera'):
             try:
                 self.controller.switch_camera()
-                self.preview_pane.set_camera(self.controller.camera)
+                self.preview.set_camera(self.controller.camera)
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, 'Kamera', str(e))
+                self._notify('Kamera', str(e), level='warning')
 
     def closeEvent(self, event):
         self.controller.camera.stop_liveview()
         super().closeEvent(event)
 
     def open_settings(self):
-        dlg = SettingsDialog(self.settings, self)
+        dlg = SettingsDialog(
+            self.settings, self, logger=self.logger.getChild('SettingsDialog')
+        )
         before_backend = self.settings.kamera.backend
         before_overlay = self.settings.overlay.image
         if dlg.exec() == QtWidgets.QDialog.Accepted:
@@ -416,7 +508,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _update_buttons(self):
         ready = bool(self.reader) and bool(self.cmb_class.currentText())
-        more = ready and self.current < len(self.learners)
+        more = ready and self.controller.current < len(self.controller.learners)
         busy = getattr(self, 'busy', False)
         self.btn_capture.setEnabled(more and not busy)
         self.btn_skip.setEnabled(more and not busy)

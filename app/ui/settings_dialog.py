@@ -2,12 +2,16 @@
 from PySide6 import QtWidgets
 from pathlib import Path
 from pydantic import ValidationError
+import logging
 from ..core.config.settings import Settings, ExcelMapping
 
 
 class SettingsDialog(QtWidgets.QDialog):
-    def __init__(self, settings: Settings, parent=None):
+    def __init__(
+        self, settings: Settings, parent=None, logger: logging.Logger | None = None
+    ):
         super().__init__(parent)
+        self.logger = logger or logging.getLogger(type(self).__name__)
         self.settings = settings
         self.setWindowTitle('Einstellungen')
 
@@ -72,6 +76,28 @@ class SettingsDialog(QtWidgets.QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
+    # ------------------------------------------------------------------
+    def _notify(
+        self,
+        title: str,
+        message: str,
+        level: str = "info",
+        show: bool = True,
+    ) -> None:
+        """Log *message* with *level* and optionally show a QMessageBox."""
+
+        log_fn = getattr(self.logger, level, self.logger.info)
+        log_fn(f"{title}: {message}")
+        if not show:
+            return
+        mapping = {
+            "error": QtWidgets.QMessageBox.critical,
+            "warning": QtWidgets.QMessageBox.warning,
+            "info": QtWidgets.QMessageBox.information,
+        }
+        msg_fn = mapping.get(level, QtWidgets.QMessageBox.information)
+        msg_fn(self, title, message)
+
     def choose_overlay(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'PNG wählen', filter='PNG (*.png)')
         if path:
@@ -111,6 +137,6 @@ class SettingsDialog(QtWidgets.QDialog):
         try:
             self.settings.save()
         except ValidationError as e:
-            QtWidgets.QMessageBox.critical(self, 'Einstellungen', str(e))
+            self._notify('Einstellungen', str(e), level='error')
             return
         super().accept()
