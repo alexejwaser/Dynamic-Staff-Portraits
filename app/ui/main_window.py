@@ -1,5 +1,5 @@
 # app/ui/main_window.py
-from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6 import QtWidgets, QtGui, QtCore, QtConcurrent
 from pathlib import Path
 from datetime import datetime
 import psutil
@@ -21,6 +21,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reader = None
         self.learners = []
         self.current = 0
+        self.busy = False
         self._setup_ui()
         if hasattr(self.camera, 'start_liveview'):
             self.camera.start_liveview()
@@ -204,6 +205,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 return True
         return False
 
+    def _set_busy(self, busy: bool):
+        self.busy = busy
+        for btn in [self.btn_excel, self.btn_settings, self.btn_switch_camera]:
+            btn.setEnabled(not busy)
+        self._update_buttons()
+
     def capture_photo(self):
         if self.current >= len(self.learners):
             return
@@ -214,6 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 'Schliesse Excel um die App zu benutzen!'
             )
             return
+        self._set_busy(True)
         learner = self.learners[self.current]
         location = self.cmb_location.currentText()
         if learner.is_new:
@@ -222,13 +230,10 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
             raw_path = unique_file_path(out_dir, f"{learner.schueler_id}.jpg")
-        try:
+
+        def task():
             self.camera.capture(raw_path)
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
-            return
-        aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
-        try:
+            aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
             process_image(
                 raw_path,
                 raw_path,
@@ -237,22 +242,49 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.settings.bild['qualitaet'],
                 aspect,
             )
+
+        future = QtConcurrent.run(task)
+        watcher = QtCore.QFutureWatcher()
+        watcher.setFuture(future)
+        watcher.finished.connect(lambda: self._capture_finished(watcher, learner, location, raw_path))
+        self._capture_watcher = watcher
+
+    def _capture_finished(self, watcher: QtCore.QFutureWatcher, learner: Learner, location: str, raw_path: Path):
+        try:
+            watcher.result()
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Bildverarbeitung', str(e))
+            QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
             raw_path.unlink(missing_ok=True)
+            self._set_busy(False)
             return
         if self._show_review(raw_path):
             if not learner.is_new:
                 date_str = datetime.now().strftime('%d.%m.%Y')
-                try:
+
+                def excel_task():
                     self.reader.mark_photographed(location, learner.row, True, date_str)
-                except Exception as e:
-                    QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
-            self.current += 1
+
+                future = QtConcurrent.run(excel_task)
+                watcher2 = QtCore.QFutureWatcher()
+                watcher2.setFuture(future)
+                watcher2.finished.connect(lambda: self._mark_finished(watcher2))
+                self._excel_watcher = watcher2
+            else:
+                self.current += 1
+                self.show_next()
+                self._set_busy(False)
         else:
             raw_path.unlink(missing_ok=True)
+            self._set_busy(False)
+
+    def _mark_finished(self, watcher: QtCore.QFutureWatcher):
+        try:
+            watcher.result()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+        self.current += 1
         self.show_next()
-        self._update_buttons()
+        self._set_busy(False)
 
     def skip_learner(self):
         if self.current >= len(self.learners):
@@ -294,23 +326,39 @@ class MainWindow(QtWidgets.QMainWindow):
             datetime.now().isoformat(),
             reason,
         )
-        try:
-            missed.append(entry)
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
-        if not learner.is_new:
+        self._set_busy(True)
+
+        def task():
+            errors = []
             try:
-                self.reader.mark_photographed(
-                    self.cmb_location.currentText(),
-                    learner.row,
-                    False,
-                    reason=reason,
-                )
+                missed.append(entry)
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+                errors.append(str(e))
+            if not learner.is_new:
+                try:
+                    self.reader.mark_photographed(
+                        self.cmb_location.currentText(),
+                        learner.row,
+                        False,
+                        reason=reason,
+                    )
+                except Exception as e:
+                    errors.append(str(e))
+            return errors
+
+        future = QtConcurrent.run(task)
+        watcher = QtCore.QFutureWatcher()
+        watcher.setFuture(future)
+        watcher.finished.connect(lambda: self._skip_finished(watcher))
+        self._skip_watcher = watcher
+
+    def _skip_finished(self, watcher: QtCore.QFutureWatcher):
+        errors = watcher.result()
+        for err in errors:
+            QtWidgets.QMessageBox.warning(self, 'Excel', err)
         self.current += 1
         self.show_next()
-        self._update_buttons()
+        self._set_busy(False)
 
     def finish_class(self):
         location = self.cmb_location.currentText()
@@ -419,8 +467,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _update_buttons(self):
         ready = bool(self.reader) and bool(self.cmb_class.currentText())
         more = ready and self.current < len(self.learners)
-        self.btn_capture.setEnabled(more)
-        self.btn_skip.setEnabled(more)
-        self.btn_add_person.setEnabled(ready)
-        self.btn_finish.setEnabled(ready)
-        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])))
+        busy = getattr(self, 'busy', False)
+        self.btn_capture.setEnabled(more and not busy)
+        self.btn_skip.setEnabled(more and not busy)
+        self.btn_add_person.setEnabled(ready and not busy)
+        self.btn_finish.setEnabled(ready and not busy)
+        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])) and not busy)
