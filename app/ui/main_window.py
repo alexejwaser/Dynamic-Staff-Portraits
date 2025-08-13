@@ -1,5 +1,5 @@
 # app/ui/main_window.py
-from PySide6 import QtWidgets, QtGui, QtCore
+from PySide6 import QtWidgets, QtGui, QtCore, QtConcurrent
 from pathlib import Path
 
 from ..core.config.settings import Settings
@@ -12,8 +12,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings: Settings, controller: MainController | None = None):
         super().__init__()
         self.settings = settings
-        self.controller = controller or MainController(settings)
-        self.camera = self.controller.camera
+        self.camera = self._init_camera()
+        self.reader = None
+        self.learners = []
+        self.current = 0
+        self.busy = False
         self._setup_ui()
         if hasattr(self.camera, "start_liveview"):
             self.camera.start_liveview()
@@ -158,6 +161,22 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_labels.set_upcoming('')
         self._update_buttons()
 
+    def _excel_running(self) -> bool:
+        for proc in psutil.process_iter(['name']):
+            try:
+                name = proc.info['name'] or ''
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            if 'excel' in name.lower():
+                return True
+        return False
+
+    def _set_busy(self, busy: bool):
+        self.busy = busy
+        for btn in [self.btn_excel, self.btn_settings, self.btn_switch_camera]:
+            btn.setEnabled(not busy)
+        self._update_buttons()
+
     def capture_photo(self):
         if self.controller.current >= len(self.controller.learners):
             return
@@ -168,23 +187,70 @@ class MainWindow(QtWidgets.QMainWindow):
                 'Schliesse Excel um die App zu benutzen!'
             )
             return
-        learner = self.controller.current_learner()
-        location = self.controls.cmb_location.currentText()
+        self._set_busy(True)
+        learner = self.learners[self.current]
+        location = self.cmb_location.currentText()
+        if learner.is_new:
+            out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
+            raw_path = unique_file_path(out_dir, f"{learner.vorname}_{learner.nachname}.jpg")
+        else:
+            out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
+            raw_path = unique_file_path(out_dir, f"{learner.schueler_id}.jpg")
+
+        def task():
+            self.camera.capture(raw_path)
+            aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
+            process_image(
+                raw_path,
+                raw_path,
+                self.settings.bild['breite'],
+                self.settings.bild['hoehe'],
+                self.settings.bild['qualitaet'],
+                aspect,
+            )
+
+        future = QtConcurrent.run(task)
+        watcher = QtCore.QFutureWatcher()
+        watcher.setFuture(future)
+        watcher.finished.connect(lambda: self._capture_finished(watcher, learner, location, raw_path))
+        self._capture_watcher = watcher
+
+    def _capture_finished(self, watcher: QtCore.QFutureWatcher, learner: Learner, location: str, raw_path: Path):
         try:
-            raw_path = self.controller.capture(learner, location)
+            watcher.result()
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
+            raw_path.unlink(missing_ok=True)
+            self._set_busy(False)
             return
         if self._show_review(raw_path):
-            try:
-                self.controller.mark_photographed(learner, location)
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
-            self.controller.advance()
+            if not learner.is_new:
+                date_str = datetime.now().strftime('%d.%m.%Y')
+
+                def excel_task():
+                    self.reader.mark_photographed(location, learner.row, True, date_str)
+
+                future = QtConcurrent.run(excel_task)
+                watcher2 = QtCore.QFutureWatcher()
+                watcher2.setFuture(future)
+                watcher2.finished.connect(lambda: self._mark_finished(watcher2))
+                self._excel_watcher = watcher2
+            else:
+                self.current += 1
+                self.show_next()
+                self._set_busy(False)
         else:
             raw_path.unlink(missing_ok=True)
+            self._set_busy(False)
+
+    def _mark_finished(self, watcher: QtCore.QFutureWatcher):
+        try:
+            watcher.result()
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+        self.current += 1
         self.show_next()
-        self._update_buttons()
+        self._set_busy(False)
 
     def skip_learner(self):
         if self.controller.current >= len(self.controller.learners):
@@ -215,15 +281,50 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             if not ok:
                 return
-        learner = self.controller.current_learner()
-        location = self.controls.cmb_location.currentText()
-        try:
-            self.controller.skip(learner, location, reason)
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
-        self.controller.advance()
+        learner = self.learners[self.current]
+        missed = MissedWriter(self.settings.missedPath)
+        entry = MissedEntry(
+            self.cmb_location.currentText(),
+            learner.klasse,
+            learner.nachname,
+            learner.vorname,
+            learner.schueler_id,
+            datetime.now().isoformat(),
+            reason,
+        )
+        self._set_busy(True)
+
+        def task():
+            errors = []
+            try:
+                missed.append(entry)
+            except Exception as e:
+                errors.append(str(e))
+            if not learner.is_new:
+                try:
+                    self.reader.mark_photographed(
+                        self.cmb_location.currentText(),
+                        learner.row,
+                        False,
+                        reason=reason,
+                    )
+                except Exception as e:
+                    errors.append(str(e))
+            return errors
+
+        future = QtConcurrent.run(task)
+        watcher = QtCore.QFutureWatcher()
+        watcher.setFuture(future)
+        watcher.finished.connect(lambda: self._skip_finished(watcher))
+        self._skip_watcher = watcher
+
+    def _skip_finished(self, watcher: QtCore.QFutureWatcher):
+        errors = watcher.result()
+        for err in errors:
+            QtWidgets.QMessageBox.warning(self, 'Excel', err)
+        self.current += 1
         self.show_next()
-        self._update_buttons()
+        self._set_busy(False)
 
     def finish_class(self):
         location = self.controls.cmb_location.currentText()
@@ -314,10 +415,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_buttons()
 
     def _update_buttons(self):
-        ready = bool(self.controller.reader) and bool(self.controls.cmb_class.currentText())
-        more = ready and self.controller.current < len(self.controller.learners)
-        self.controls.btn_capture.setEnabled(more)
-        self.controls.btn_skip.setEnabled(more)
-        self.controls.btn_add_person.setEnabled(ready)
-        self.controls.btn_finish.setEnabled(ready)
-        self.controls.btn_search_class.setEnabled(bool(getattr(self.controller, 'current_classes', [])))
+        ready = bool(self.reader) and bool(self.cmb_class.currentText())
+        more = ready and self.current < len(self.learners)
+        busy = getattr(self, 'busy', False)
+        self.btn_capture.setEnabled(more and not busy)
+        self.btn_skip.setEnabled(more and not busy)
+        self.btn_add_person.setEnabled(ready and not busy)
+        self.btn_finish.setEnabled(ready and not busy)
+        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])) and not busy)
