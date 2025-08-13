@@ -2,12 +2,14 @@
 from pathlib import Path
 from PySide6 import QtWidgets, QtGui, QtCore
 from .overlay import Overlay
+import logging
 
 class LiveViewWidget(QtWidgets.QWidget):
     """Widget zur Anzeige des Live-Streams mit einblendbarem Overlay."""
 
-    def __init__(self, camera, fps: int = 20, parent=None):
+    def __init__(self, camera, fps: int = 20, parent=None, logger: logging.Logger | None = None):
         super().__init__(parent)
+        self.logger = logger or logging.getLogger(__name__)
         self.camera = camera
         self.label = QtWidgets.QLabel()
         self.label.setAlignment(QtCore.Qt.AlignCenter)
@@ -17,7 +19,7 @@ class LiveViewWidget(QtWidgets.QWidget):
             QtWidgets.QSizePolicy.Expanding,
         )
         self.frame_ratio = 3 / 4
-        self.overlay = Overlay()
+        self.overlay = Overlay(logger=self.logger)
         layout = QtWidgets.QStackedLayout(self)
         layout.setStackingMode(QtWidgets.QStackedLayout.StackAll)
         layout.addWidget(self.label)
@@ -83,4 +85,5 @@ class LiveViewWidget(QtWidgets.QWidget):
                 )
                 self.label.setPixmap(pix)
         except Exception as e:
+            self.logger.error("Live view update failed: %s", e)
             self.label.setText(str(e))

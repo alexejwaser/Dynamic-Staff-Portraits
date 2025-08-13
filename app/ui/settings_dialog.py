@@ -1,12 +1,14 @@
 # app/ui/settings_dialog.py
 from PySide6 import QtWidgets
+import logging
 from pathlib import Path
 from ..core.config.settings import Settings
 
 
 class SettingsDialog(QtWidgets.QDialog):
-    def __init__(self, settings: Settings, parent=None):
+    def __init__(self, settings: Settings, parent=None, logger: logging.Logger | None = None):
         super().__init__(parent)
+        self.logger = logger or logging.getLogger(__name__)
         self.settings = settings
         self.setWindowTitle('Einstellungen')
 
