@@ -547,5 +547,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_skip.setEnabled(more and not busy)
         self.btn_add_person.setEnabled(ready and not busy)
         self.btn_finish.setEnabled(ready and not busy)
-        self.btn_search_class.setEnabled(bool(getattr(self, 'current_classes', [])) and not busy)
+        self.btn_search_class.setEnabled(
+            bool(getattr(self.controller, 'current_classes', [])) and not busy
+        )
         self.btn_jump_to.setEnabled(more and not busy and bool(self.btn_jump_to.menu().actions()))

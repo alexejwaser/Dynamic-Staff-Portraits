@@ -157,3 +157,24 @@ def test_jump_to_person(main_window, qtbot):
     assert win.label_current.text().startswith("Jane Roe")
     qtbot.mouseClick(win.btn_capture, QtCore.Qt.LeftButton)
     assert win.label_current.text().startswith("John Doe")
+
+
+def test_search_button_enabled_after_loading_classes(main_window, qtbot):
+    learner1 = Learner("Class1", "Doe", "John", "1", row=1)
+
+    class FakeReader:
+        def locations(self):
+            return ["Loc1"]
+
+        def classes_for_location(self, location):
+            return ["Class1"]
+
+        def learners(self, location, class_name):
+            return [learner1]
+
+    reader = FakeReader()
+    win = main_window
+    win.reader = reader
+    win.cmb_location.addItems(reader.locations())
+    win.cmb_location.setCurrentIndex(0)
+    assert win.btn_search_class.isEnabled()
