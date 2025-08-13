@@ -1,4 +1,4 @@
-# Dynamic Staff Portraits
+# Identity Card Photo Creator V1
 
 Eine Desktop-Anwendung zur effizienten Erstellung von Portraitfotos.
 
