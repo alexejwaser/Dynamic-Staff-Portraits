@@ -1,13 +1,15 @@
 # app/ui/widgets/overlay.py
 from pathlib import Path
 from PySide6 import QtWidgets, QtGui, QtCore
+import logging
 
 
 class Overlay(QtWidgets.QWidget):
     """Zeigt ein optionales PNG-Bild ueber dem LiveView."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, logger: logging.Logger | None = None):
         super().__init__(parent)
+        self.logger = logger or logging.getLogger(__name__)
         self.pixmap = None
         self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
         self.setAttribute(QtCore.Qt.WA_NoSystemBackground)

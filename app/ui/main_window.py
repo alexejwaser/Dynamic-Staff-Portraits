@@ -3,6 +3,7 @@ from PySide6 import QtWidgets, QtGui, QtCore
 from pathlib import Path
 from datetime import datetime
 import psutil
+import logging
 
 from ..core.config.settings import Settings
 from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
@@ -14,8 +15,9 @@ from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, logger: logging.Logger | None = None):
         super().__init__()
+        self.logger = logger or logging.getLogger(__name__)
         self.settings = settings
         self.camera = self._init_camera()
         self.reader = None
@@ -90,7 +92,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # right preview
         from .widgets.live_view_widget import LiveViewWidget
         fps = self.settings.kamera.get('liveviewFpsZiel', 20)
-        self.preview = LiveViewWidget(self.camera, fps)
+        self.preview = LiveViewWidget(self.camera, fps, logger=self.logger)
         self.preview.set_overlay_image(self.settings.overlay.get('image'))
         preview_layout = QtWidgets.QVBoxLayout()
         preview_layout.setSpacing(10)
@@ -135,6 +137,17 @@ class MainWindow(QtWidgets.QMainWindow):
         QtGui.QShortcut(QtGui.QKeySequence('A'), self, self.add_person)
         QtGui.QShortcut(QtGui.QKeySequence('C'), self, self.switch_camera)
 
+    def _log_error(self, title: str, message: str, *, critical: bool = False) -> None:
+        self.logger.error("%s: %s", title, message)
+        if critical:
+            QtWidgets.QMessageBox.critical(self, title, message)
+        else:
+            QtWidgets.QMessageBox.warning(self, title, message)
+
+    def _log_info(self, title: str, message: str) -> None:
+        self.logger.info("%s: %s", title, message)
+        QtWidgets.QMessageBox.information(self, title, message)
+
     def load_excel(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Excel auswählen', filter='Excel (*.xlsx)')
         if not path:
@@ -142,7 +155,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self.reader = ExcelReader(Path(path), self.settings.excelMapping)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, 'Excel', str(e))
+            self._log_error('Excel', str(e), critical=True)
             return
         self.cmb_location.clear()
         self.cmb_location.addItems(self.reader.locations())
@@ -160,7 +173,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def search_class(self):
         if not getattr(self, 'current_classes', None):
             return
-        dlg = ClassSearchDialog(self.current_classes, self)
+        dlg = ClassSearchDialog(self.current_classes, self, logger=self.logger)
         if dlg.exec() == QtWidgets.QDialog.Accepted:
             selected = dlg.selected_class()
             if selected:
@@ -208,11 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.current >= len(self.learners):
             return
         if self._excel_running():
-            QtWidgets.QMessageBox.warning(
-                self,
-                'Excel geöffnet',
-                'Schliesse Excel um die App zu benutzen!'
-            )
+            self._log_error('Excel geöffnet', 'Schliesse Excel um die App zu benutzen!')
             return
         learner = self.learners[self.current]
         location = self.cmb_location.currentText()
@@ -225,7 +234,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self.camera.capture(raw_path)
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, 'Aufnahme fehlgeschlagen', str(e))
+            self._log_error('Aufnahme fehlgeschlagen', str(e), critical=True)
             return
         aspect = self.settings.bild.get('seitenverhaeltnis', (3, 4))
         try:
@@ -238,7 +247,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 aspect,
             )
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Bildverarbeitung', str(e))
+            self._log_error('Bildverarbeitung', str(e))
             raw_path.unlink(missing_ok=True)
             return
         if self._show_review(raw_path):
@@ -247,7 +256,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 try:
                     self.reader.mark_photographed(location, learner.row, True, date_str)
                 except Exception as e:
-                    QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+                    self._log_error('Excel', str(e))
             self.current += 1
         else:
             raw_path.unlink(missing_ok=True)
@@ -258,11 +267,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.current >= len(self.learners):
             return
         if self._excel_running():
-            QtWidgets.QMessageBox.warning(
-                self,
-                'Excel geöffnet',
-                'Schliesse Excel um die App zu benutzen!'
-            )
+            self._log_error('Excel geöffnet', 'Schliesse Excel um die App zu benutzen!')
             return
         reasons = ['Krank', 'Verweigert', 'Anderer Grund...']
         reason, ok = QtWidgets.QInputDialog.getItem(
@@ -297,7 +302,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             missed.append(entry)
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+            self._log_error('Excel', str(e))
         if not learner.is_new:
             try:
                 self.reader.mark_photographed(
@@ -307,7 +312,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     reason=reason,
                 )
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, 'Excel', str(e))
+                self._log_error('Excel', str(e))
         self.current += 1
         self.show_next()
         self._update_buttons()
@@ -328,12 +333,15 @@ class MainWindow(QtWidgets.QMainWindow):
         msg = QtWidgets.QMessageBox(self)
         msg.setWindowTitle('Klasse abgeschlossen')
         if zip_paths:
-            msg.setText(f'ZIP-Archiv {zip_paths[0].name} wurde erstellt.')
+            message_text = f'ZIP-Archiv {zip_paths[0].name} wurde erstellt.'
+            msg.setText(message_text)
             open_btn = msg.addButton('Ordner öffnen', QtWidgets.QMessageBox.ActionRole)
         else:
-            msg.setText('Klasse abgeschlossen')
+            message_text = 'Klasse abgeschlossen'
+            msg.setText(message_text)
             open_btn = None
         msg.addButton('OK', QtWidgets.QMessageBox.AcceptRole)
+        self.logger.info(message_text)
         msg.exec()
         if open_btn and msg.clickedButton() == open_btn:
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out_dir)))
@@ -389,7 +397,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.camera.switch_camera(self.current_cam_id)
                 self.preview.set_camera(self.camera)
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, 'Kamera', str(e))
+                self._log_error('Kamera', str(e))
                 self.current_cam_id = 0
                 try:
                     self.camera.switch_camera(self.current_cam_id)
@@ -402,7 +410,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
     def open_settings(self):
-        dlg = SettingsDialog(self.settings, self)
+        dlg = SettingsDialog(self.settings, self, logger=self.logger)
         before_backend = self.settings.kamera.get('backend')
         before_overlay = self.settings.overlay.get('image')
         if dlg.exec() == QtWidgets.QDialog.Accepted:
