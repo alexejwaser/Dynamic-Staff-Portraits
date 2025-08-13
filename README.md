@@ -1,49 +1,51 @@
-# Identity Card Photo Creator V1
+# Identity Card Photo Creator
 
-Eine Desktop-Anwendung zur effizienten Erstellung von Portraitfotos.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](#)
 
-## Installation
+Eine Desktop-Anwendung zur schnellen Erstellung von Portraitfotos für Klassen und Gruppen.
 
+## Inhaltsverzeichnis
+- [🚀 Features](#-features)
+- [📦 Installation](#-installation)
+- [▶️ Nutzung](#-nutzung)
+- [⌨️ Tastenkürzel](#-tastenkürzel)
+- [🧪 Tests](#-tests)
+- [📄 Lizenz](#-lizenz)
+
+## 🚀 Features
+- 📁 Automatische Bündelung der Fotos zu ZIP-Archiven pro Klasse
+- ⚙️ Individuell konfigurierbare Kamera, Excel-Spalten und Overlay-Bild
+- 🖼️ Live-Vorschau mit skalierbarem PNG-Overlay
+- 🔍 Schnelle Klassensuche direkt in der Oberfläche
+- 📷 Unterstützung für DSLR-Kameras via `gphoto2` oder Canon EDSDK
+
+## 📦 Installation
 ```bash
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
 
-## Starten
-
+## ▶️ Nutzung
 ```bash
 python -m app.main
 ```
 
-Fotos einer Klasse werden beim Abschluss automatisch zu ZIP-Archiven gebündelt
-und ein Hinweis mit Link zum Ordner erscheint. Über das Zahnrad können die
-Einstellungen geöffnet werden. Dort lässt sich die Kameraart, die Excel-Spalten
-(inkl. der Spalte **Fotografiert?**, welche beim Fotografieren automatisch mit
-"Ja" bzw. "Nein" ausgefüllt wird, sowie **Aufnahmedatum**, das das Datum des
-Fotos speichert) und ein optionales Overlay-Bild (PNG) für die
-Live-Vorschau konfigurieren. Das
-gewählte Overlay wird gespeichert und beim nächsten Start automatisch geladen.
-Die Live-Vorschau skaliert automatisch zum Kamerabild, das Overlay passt sich
-dabei an. Unter Windows wird standardmässig die zweite erkannte Webcam
-via OpenCV verwendet.
-Neben der Klassenauswahl befindet sich ein Suchsymbol, mit dem Klassen des
-gewählten Standorts schnell gefunden werden können.
-Ist `gphoto2` vorhanden, kann alternativ eine DSLR genutzt werden. Fuer
-hoechste Qualitaet laesst sich unter Windows die Canon-EDSDK Anbindung ueber die
-Einstellung **Canon SDK** aktivieren; sonst startet ein Simulator.
+Beim Abschluss werden alle Fotos einer Klasse automatisch zu einem ZIP-Archiv zusammengefasst und der Zielordner geöffnet.
 
-## Tastenkürzel
+## ⌨️ Tastenkürzel
+- ␠ **Leertaste** – Foto aufnehmen bzw. im Review-Dialog übernehmen
+- ⎋ **Esc** – Aufnahme verwerfen und erneut fotografieren
+- 🔁 **S** – Lernende überspringen
+- ✅ **F** – Klasse abschließen
+- ➕ **A** – Person hinzufügen
+- 🔄 **C** – Kamera wechseln
 
-- **Leertaste** – Foto aufnehmen bzw. im Review Dialog übernehmen
-- **Esc** – Aufnahme verwerfen und erneut fotografieren
-- **S** – Lernende überspringen
-- **F** – Klasse abschliessen
-- **A** – Person hinzufügen
-- **C** – Kamera wechseln
-
-## Tests
-
+## 🧪 Tests
 ```bash
 pytest
 ```
+
+## 📄 Lizenz
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
