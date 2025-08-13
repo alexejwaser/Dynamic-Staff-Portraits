@@ -1,8 +1,10 @@
 from PySide6 import QtWidgets, QtCore
+import logging
 
 class ClassSearchDialog(QtWidgets.QDialog):
-    def __init__(self, classes, parent=None):
+    def __init__(self, classes, parent=None, logger: logging.Logger | None = None):
         super().__init__(parent)
+        self.logger = logger or logging.getLogger(type(self).__name__)
         self.setWindowTitle('Klasse suchen')
         self.classes = list(classes)
         layout = QtWidgets.QVBoxLayout(self)

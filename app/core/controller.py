@@ -26,7 +26,7 @@ class MainController:
 
     # camera -----------------------------------------------------------------
     def _init_camera(self):
-        backend = self.settings.kamera.get("backend", "opencv")
+        backend = getattr(self.settings.kamera, "backend", "opencv")
         cam = None
         if backend == "gphoto2" and QtCore.QStandardPaths.findExecutable("gphoto2"):
             cam = GPhoto2Camera()
@@ -109,13 +109,13 @@ class MainController:
             out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
             raw_path = unique_file_path(out_dir, f"{learner.schueler_id}.jpg")
         self.camera.capture(raw_path)
-        aspect = self.settings.bild.get("seitenverhaeltnis", (3, 4))
+        aspect = getattr(self.settings.bild, "seitenverhaeltnis", (3, 4))
         process_image(
             raw_path,
             raw_path,
-            self.settings.bild["breite"],
-            self.settings.bild["hoehe"],
-            self.settings.bild["qualitaet"],
+            self.settings.bild.breite,
+            self.settings.bild.hoehe,
+            self.settings.bild.qualitaet,
             aspect,
         )
         return raw_path
@@ -147,7 +147,7 @@ class MainController:
         if files:
             from .archiver.chunk_zip import chunk_by_count
             zip_base = out_dir / f"{klasse}.zip"
-            max_count = self.settings.zip.get("maxAnzahl") or len(files)
+            max_count = getattr(self.settings.zip, "maxAnzahl", None) or len(files)
             zip_paths = chunk_by_count(files, zip_base, max_count)
         else:
             zip_paths = []
