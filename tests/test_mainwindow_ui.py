@@ -124,3 +124,36 @@ def test_capture_flow(main_window, qtbot):
     assert not win.btn_skip.isEnabled()
     assert len(win.camera.captured) == 2
     assert len(reader.marked) == 2
+
+
+def test_jump_to_person(main_window, qtbot):
+    learner1 = Learner("Class1", "Doe", "John", "1", row=1)
+    learner2 = Learner("Class1", "Roe", "Jane", "2", row=2)
+
+    class FakeReader:
+        def __init__(self, learners):
+            self._learners = learners
+
+        def locations(self):
+            return ["Loc1"]
+
+        def classes_for_location(self, location):
+            return ["Class1"]
+
+        def learners(self, location, class_name):
+            return self._learners
+
+        def mark_photographed(self, location, row, photographed, date):
+            pass
+
+    reader = FakeReader([learner1, learner2])
+    win = main_window
+    win.reader = reader
+    win.cmb_location.addItems(reader.locations())
+    win.cmb_location.setCurrentIndex(0)
+    win.cmb_class.setCurrentIndex(0)
+
+    win.jump_to(1)
+    assert win.label_current.text().startswith("Jane Roe")
+    qtbot.mouseClick(win.btn_capture, QtCore.Qt.LeftButton)
+    assert win.label_current.text().startswith("John Doe")

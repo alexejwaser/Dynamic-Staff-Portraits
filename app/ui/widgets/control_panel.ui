@@ -67,6 +67,16 @@
     </widget>
    </item>
    <item>
+    <widget class="QToolButton" name="btn_jump_to">
+     <property name="text">
+      <string>Person wählen</string>
+     </property>
+     <property name="popupMode">
+      <enum>QToolButton::InstantPopup</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>

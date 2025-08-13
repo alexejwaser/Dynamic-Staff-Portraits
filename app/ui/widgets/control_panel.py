@@ -26,6 +26,7 @@ class ControlPanel(QtWidgets.QWidget):
             self.btn_add_person = loaded.findChild(QtWidgets.QPushButton, 'btn_add_person')
             self.btn_finish = loaded.findChild(QtWidgets.QPushButton, 'btn_finish')
             self.btn_settings = loaded.findChild(QtWidgets.QPushButton, 'btn_settings')
+            self.btn_jump_to = loaded.findChild(QtWidgets.QToolButton, 'btn_jump_to')
         else:
             # Fallback layout (shouldn't happen in normal usage)
             layout = QtWidgets.QVBoxLayout(self)
@@ -38,8 +39,20 @@ class ControlPanel(QtWidgets.QWidget):
             self.btn_add_person = QtWidgets.QPushButton('Person hinzufügen')
             self.btn_finish = QtWidgets.QPushButton('Fertig')
             self.btn_settings = QtWidgets.QPushButton('')
-            for w in [self.btn_excel, self.cmb_location, self.cmb_class, self.btn_search_class,
-                      self.btn_capture, self.btn_skip, self.btn_add_person,
-                      self.btn_finish, self.btn_settings]:
+            self.btn_jump_to = QtWidgets.QToolButton('')
+            self.btn_jump_to.setText('Person wählen')
+            self.btn_jump_to.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+            for w in [
+                self.btn_excel,
+                self.cmb_location,
+                self.cmb_class,
+                self.btn_search_class,
+                self.btn_capture,
+                self.btn_skip,
+                self.btn_add_person,
+                self.btn_finish,
+                self.btn_settings,
+                self.btn_jump_to,
+            ]:
                 layout.addWidget(w)
             layout.addStretch()
