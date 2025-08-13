@@ -4,6 +4,7 @@ from PySide6 import QtWidgets, QtGui
 from pathlib import Path
 from app.core.config.settings import Settings
 from app.core.util.logging import setup_logging
+from app.core.controller import MainController
 from app.ui.main_window import MainWindow
 
 def main():
@@ -12,7 +13,8 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setFont(QtGui.QFont("Segoe UI", 10))
-    win = MainWindow(settings)
+    controller = MainController(settings)
+    win = MainWindow(settings, controller)
     win.show()
     sys.exit(app.exec())
 
