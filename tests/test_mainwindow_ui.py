@@ -10,7 +10,7 @@ from PySide6 import QtCore
 from app.core.config.settings import Settings, DEFAULTS
 from app.core.excel.reader import Learner
 from app.ui.main_window import MainWindow
-import app.ui.main_window as main_window_module
+import app.core.controller as controller_module
 
 
 @pytest.fixture
@@ -58,17 +58,18 @@ def dummy_camera():
 @pytest.fixture
 def main_window(qtbot, settings, dummy_camera, monkeypatch, tmp_path):
     monkeypatch.setattr(MainWindow, "_init_camera", lambda self: dummy_camera)
-    monkeypatch.setattr(main_window_module, "class_output_dir", lambda base, loc, klass: tmp_path / f"{loc}_{klass}")
-    monkeypatch.setattr(main_window_module, "new_learner_dir", lambda base, loc, klass: tmp_path / f"new_{loc}_{klass}")
+    monkeypatch.setattr(controller_module, "class_output_dir", lambda base, loc, klass: tmp_path / f"{loc}_{klass}")
+    monkeypatch.setattr(controller_module, "new_learner_dir", lambda base, loc, klass: tmp_path / f"new_{loc}_{klass}")
 
     def dummy_unique_file_path(directory, name):
         directory.mkdir(parents=True, exist_ok=True)
         return directory / name
 
-    monkeypatch.setattr(main_window_module, "unique_file_path", dummy_unique_file_path)
-    monkeypatch.setattr(main_window_module, "process_image", lambda *a, **kw: None)
+    monkeypatch.setattr(controller_module, "unique_file_path", dummy_unique_file_path)
+    monkeypatch.setattr(controller_module, "process_image", lambda *a, **kw: None)
     monkeypatch.setattr(MainWindow, "_show_review", lambda self, path: True)
     monkeypatch.setattr(MainWindow, "_excel_running", lambda self: False)
+    monkeypatch.setattr(MainWindow, "_notify", lambda *a, **kw: None)
     win = MainWindow(settings)
     qtbot.addWidget(win)
     return win

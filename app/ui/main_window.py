@@ -14,11 +14,6 @@ from ..core.camera import SimulatorCamera, GPhoto2Camera, OpenCVCamera
 from ..core.excel.reader import ExcelReader, Learner
 from ..core.excel.missed_writer import MissedWriter, MissedEntry
 from ..core.imaging.processor import process_image
-from ..core.util.paths import (
-    class_output_dir,
-    new_learner_dir,
-    unique_file_path,
-)
 from .settings_dialog import SettingsDialog
 from .class_search_dialog import ClassSearchDialog
 from .widgets import ControlPanel
@@ -38,6 +33,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings = settings
         self.controller = controller or MainController(settings)
         self.camera = self._init_camera()
+        # Ensure the controller uses the same camera instance as the UI so that
+        # all capture operations share state and configuration.
+        self.controller.camera = self.camera
         self._reader = None
         self.busy = False
         self._jump_return = None
@@ -282,44 +280,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_busy(True)
         learner = self.controller.learners[self.controller.current]
         location = self.cmb_location.currentText()
-        if learner.is_new:
-            out_dir = new_learner_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
-            raw_path = unique_file_path(out_dir, f"{learner.vorname}_{learner.nachname}.jpg")
-        else:
-            out_dir = class_output_dir(self.settings.ausgabeBasisPfad, location, learner.klasse)
-            raw_path = unique_file_path(out_dir, f"{learner.schueler_id}.jpg")
 
         def task():
-            self.camera.capture(raw_path)
-            aspect = getattr(self.settings.bild, 'seitenverhaeltnis', (3, 4))
-            process_image(
-                raw_path,
-                raw_path,
-                self.settings.bild.breite,
-                self.settings.bild.hoehe,
-                self.settings.bild.qualitaet,
-                aspect,
-            )
+            # Delegate the actual capture process to the controller so that
+            # filenames are determined solely based on the provided *learner*.
+            return self.controller.capture(learner, location)
 
         if hasattr(QtConcurrent, 'run'):
             future = QtConcurrent.run(task)
             watcher = QtCore.QFutureWatcher()
             watcher.setFuture(future)
             watcher.finished.connect(
-                lambda: self._capture_finished(watcher, learner, location, raw_path)
+                lambda: self._capture_finished(watcher, learner, location, None)
             )
             self._capture_watcher = watcher
         else:
-            task()
+            raw_path = task()
             self._capture_finished(None, learner, location, raw_path)
 
-    def _capture_finished(self, watcher: QtCore.QFutureWatcher | None, learner: Learner, location: str, raw_path: Path):
+    def _capture_finished(self, watcher: QtCore.QFutureWatcher | None, learner: Learner, location: str, raw_path: Path | None):
         try:
             if watcher is not None:
-                watcher.result()
+                raw_path = watcher.result()
         except Exception as e:
             self._notify('Aufnahme fehlgeschlagen', str(e), level='error')
-            raw_path.unlink(missing_ok=True)
+            if raw_path is not None:
+                raw_path.unlink(missing_ok=True)
+            self._set_busy(False)
+            return
+        if raw_path is None:
             self._set_busy(False)
             return
         if self._show_review(raw_path):
