@@ -247,7 +247,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def jump_to(self, index: int):
         if index <= self.controller.current or index >= len(self.controller.learners):
             return
+        # Remember current position so we can resume after processing
+        # the selected learner. If the jump spans more than one learner,
+        # skip the current learner upon returning.
         self._jump_return = self.controller.current
+        self._skip_return = index - self.controller.current > 1
         self.controller.current = index
         self.show_next()
 
@@ -348,8 +352,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def _after_learner_done(self):
         if getattr(self, '_jump_return', None) is not None:
             del self.controller.learners[self.controller.current]
-            self.controller.current = self._jump_return
+            if getattr(self, '_skip_return', False):
+                self.controller.current = self._jump_return
+                self.controller.advance()
+            else:
+                self.controller.current = self._jump_return
             self._jump_return = None
+            self._skip_return = False
         else:
             self.controller.advance()
         self.show_next()
