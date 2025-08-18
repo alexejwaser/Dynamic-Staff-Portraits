@@ -69,6 +69,9 @@ def main_window(qtbot, settings, dummy_camera, monkeypatch, tmp_path):
     monkeypatch.setattr(controller_module, "process_image", lambda *a, **kw: None)
     monkeypatch.setattr(MainWindow, "_excel_running", lambda self: False)
     monkeypatch.setattr(MainWindow, "_notify", lambda *a, **kw: None)
+    # Automatically accept the review dialog unless a test overrides
+    # this behaviour.
+    monkeypatch.setattr(MainWindow, "_show_review", lambda self, p: True)
     win = MainWindow(settings)
     qtbot.addWidget(win)
     return win
@@ -178,4 +181,28 @@ def test_jump_to_person_file_names(main_window, qtbot, tmp_path):
     wait_idle(qtbot, main_window)
     assert main_window.camera.captured[1].name == "2.jpg"
     assert (tmp_path / "Loc1_Class1" / "2.jpg").exists()
+
+
+def test_jump_to_person_retake_preserves_selection(main_window, qtbot, monkeypatch, tmp_path):
+    l1 = Learner("Class1", "A", "Alice", "1", row=1)
+    l2 = Learner("Class1", "B", "Bob", "2", row=2)
+    prepare(main_window, [l1, l2])
+
+    main_window.jump_to(1)
+    seq = iter([False, True, True])
+    monkeypatch.setattr(MainWindow, "_show_review", lambda self, p: next(seq))
+
+    qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
+    wait_idle(qtbot, main_window)
+    # No file saved yet and still on the selected learner
+    assert not (tmp_path / "Loc1_Class1" / "2.jpg").exists()
+    assert main_window.controller.current == 1
+
+    qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
+    wait_idle(qtbot, main_window)
+    assert (tmp_path / "Loc1_Class1" / "2.jpg").exists()
+
+    qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
+    wait_idle(qtbot, main_window)
+    assert (tmp_path / "Loc1_Class1" / "1.jpg").exists()
 

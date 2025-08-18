@@ -335,10 +335,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._after_learner_done()
         else:
             raw_path.unlink(missing_ok=True)
-            if getattr(self, '_jump_return', None) is not None:
-                self.controller.current = self._jump_return
-                self._jump_return = None
-                self.show_next()
+            # Preserve the currently selected learner when retrying a
+            # capture so that manually chosen entries (via the drop-down
+            # menu) remain active until a photo is accepted.  The
+            # ``_jump_return`` index is kept so that, once the capture is
+            # confirmed, normal order can resume.
+            self.show_next()
             self._set_busy(False)
 
     def _mark_finished(self, watcher: QtCore.QFutureWatcher | None):
