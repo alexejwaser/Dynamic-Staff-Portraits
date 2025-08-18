@@ -206,3 +206,28 @@ def test_jump_to_person_retake_preserves_selection(main_window, qtbot, monkeypat
     wait_idle(qtbot, main_window)
     assert (tmp_path / "Loc1_Class1" / "1.jpg").exists()
 
+
+def test_jump_to_person_returns_to_first_unphotographed(main_window, qtbot, tmp_path):
+    l1 = Learner("Class1", "A", "Alice", "1", row=1)
+    l2 = Learner("Class1", "B", "Bob", "2", row=2)
+    l3 = Learner("Class1", "C", "Carl", "3", row=3)
+    prepare(main_window, [l1, l2, l3])
+
+    # Jump to the last learner out of order
+    main_window.jump_to(2)
+
+    qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
+    wait_idle(qtbot, main_window)
+
+    # After capturing the out-of-order learner, we should be back at the first
+    # unphotographed learner (index 0)
+    assert main_window.controller.current == 0
+    assert main_window.camera.captured[0].name == "3.jpg"
+
+    # Capture the first learner and ensure sequential order continues
+    qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
+    wait_idle(qtbot, main_window)
+
+    assert main_window.camera.captured[1].name == "1.jpg"
+    assert main_window.controller.current == 1
+
