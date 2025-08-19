@@ -11,6 +11,7 @@ Eine Desktop-Anwendung zur schnellen Erstellung von Portraitfotos für Klassen u
 - [▶️ Nutzung](#-nutzung)
 - [⌨️ Tastenkürzel](#-tastenkürzel)
 - [🧪 Tests](#-tests)
+- [🖥️ Windows-EXE aus GitHub Actions](#-windows-exe-aus-github-actions)
 - [📄 Lizenz](#-lizenz)
 
 ## 🚀 Features
@@ -46,6 +47,19 @@ Beim Abschluss werden alle Fotos einer Klasse automatisch zu einem ZIP-Archiv zu
 ```bash
 pytest
 ```
+
+## 🖥️ Windows-EXE aus GitHub Actions
+Ein GitHub-Workflow baut automatisch eine Windows-Exe, sobald ein neuer Branch im entfernten Repository angelegt wird.
+
+1. Erstelle lokal einen neuen Branch:
+   ```bash
+   git checkout -b mein-branch
+   git push -u origin mein-branch
+   ```
+2. Öffne auf GitHub den Tab **Actions** und wähle den Lauf **Build EXE on branch creation**.
+3. Unter **Artifacts** kannst du das Archiv **LegicCardCreator** herunterladen. Darin befindet sich die Datei `LegicCardCreator.exe` aus dem `dist/`-Ordner.
+
+Die EXE kann anschließend wie gewohnt auf Windows ausgeführt werden.
 
 ## 📄 Lizenz
 Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
