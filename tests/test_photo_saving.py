@@ -5,7 +5,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6 import QtCore
+from PySide6 import QtCore, QtWidgets
 
 from app.core.config.settings import Settings, DEFAULTS
 from app.core.excel.reader import Learner
@@ -133,10 +133,17 @@ def test_retake_photo_preserves_student_id(main_window, qtbot, monkeypatch, tmp_
     assert main_window.camera.captured[-1].name == "1.jpg"
 
 
-def test_skip_then_next_photo_has_correct_id(main_window, qtbot, tmp_path):
+def test_skip_then_next_photo_has_correct_id(main_window, qtbot, tmp_path, monkeypatch):
     l1 = Learner("Class1", "Doe", "John", "1", row=1)
     l2 = Learner("Class1", "Roe", "Jane", "2", row=2)
     prepare(main_window, [l1, l2])
+
+    monkeypatch.setattr(
+        QtWidgets.QInputDialog, "getItem", lambda *args, **kwargs: ("Krank", True)
+    )
+    monkeypatch.setattr(
+        QtWidgets.QInputDialog, "getText", lambda *args, **kwargs: ("", True)
+    )
 
     qtbot.mouseClick(main_window.btn_skip, QtCore.Qt.LeftButton)
     wait_idle(qtbot, main_window)
@@ -179,8 +186,8 @@ def test_jump_to_person_file_names(main_window, qtbot, tmp_path):
 
     qtbot.mouseClick(main_window.btn_capture, QtCore.Qt.LeftButton)
     wait_idle(qtbot, main_window)
-    assert main_window.camera.captured[1].name == "2.jpg"
-    assert (tmp_path / "Loc1_Class1" / "2.jpg").exists()
+    assert main_window.camera.captured[1].name == "1.jpg"
+    assert (tmp_path / "Loc1_Class1" / "1.jpg").exists()
 
 
 def test_jump_to_person_retake_preserves_selection(main_window, qtbot, monkeypatch, tmp_path):
