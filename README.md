@@ -44,7 +44,10 @@ Beim Abschluss werden alle Fotos einer Klasse automatisch zu einem ZIP-Archiv zu
 - 🔄 **C** – Kamera wechseln
 
 ## 🧪 Tests
+Das Repository enthält Unit- und Integrationstests für Bildverarbeitung, Excel-Import, Logging, Pfad-Helfer und die Qt-basierte Oberfläche. Nach der Installation der Abhängigkeiten können alle Tests mit `pytest` ausgeführt werden:
+
 ```bash
+pip install -r requirements.txt  # installiert u. a. pytest und pytest-qt
 pytest
 ```
 
